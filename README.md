@@ -53,8 +53,8 @@ sudo apt install ffmpeg xdotool xclip python3-venv
 Clone this repository and run the startup script:
 
 ```bash
-git clone https://github.com/your-username/screen-stream.git
-cd screen-stream
+git clone https://github.com/krsatyam36/screenshare.git
+cd screenshare
 ./start.sh
 ```
 
@@ -132,6 +132,15 @@ Contributions are welcome! Feel free to open an issue or submit a pull request.
 
 ---
 
+## 👤 Author
+
+**Kumar Satyam**
+- 📧 Email: [kumarsatyam3135@gmail.com](mailto:kumarsatyam3135@gmail.com)
+- 🐙 GitHub: [@your-username](https://github.com/your-username)
+
+---
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
