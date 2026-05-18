@@ -136,7 +136,7 @@ Contributions are welcome! Feel free to open an issue or submit a pull request.
 
 **Kumar Satyam**
 - 📧 Email: [kumarsatyam3135@gmail.com](mailto:kumarsatyam3135@gmail.com)
-- 🐙 GitHub: [@your-username](https://github.com/your-username)
+- 🐙 GitHub: [@your-username](https://github.com/krsatyam36)
 
 ---
 
