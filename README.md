@@ -4,6 +4,7 @@
 
 Stream your desktop and external monitors directly to any web browser on your local network. No app installation required on the client side—just open a URL or scan a QR code.
 
+![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![Status](https://img.shields.io/badge/status-active-success)
 ![Platform](https://img.shields.io/badge/platform-linux-lightgrey)
 ![License](https://img.shields.io/badge/license-MIT-blue)
