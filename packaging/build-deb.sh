@@ -5,7 +5,7 @@
 set -euo pipefail
 
 PACKAGE="screen-share-tab"
-VERSION="${1:-1.0.0}"
+VERSION="${1:-1.1.0}"
 ARCH="amd64"
 DEB="${PACKAGE}_${VERSION}_${ARCH}.deb"
 
@@ -37,7 +37,7 @@ chmod +x "$STAGE/opt/screen-share-tab/install-service.sh"
 # ── The 'screen-share-tab' command ───────────────────────────────────────────
 cat > "$STAGE/usr/local/bin/$PACKAGE" << 'EOF'
 #!/usr/bin/env bash
-exec /opt/screen-share-tab/start.sh
+exec /opt/screen-share-tab/start.sh "$@"
 EOF
 chmod 755 "$STAGE/usr/local/bin/$PACKAGE"
 

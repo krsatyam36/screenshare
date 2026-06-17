@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
   <title>Screen Stream</title>
   <script src="mpegts.min.js"></script>
+  <link rel="stylesheet" href="xterm.css" onerror="this.dataset.failed=1">
+  <script src="xterm.js"></script>
+  <script src="xterm-addon-fit.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -75,8 +78,8 @@
     .tb-btn.sm { padding: 0 10px; font-size: 12px; }
 
     /* RTT pill */
-    #rtt-pill {
-      margin-left: auto;
+    #rtt-pill { margin-left: auto; }
+    #rtt-pill, #batt-pill {
       font-size: 11px;
       font-weight: 600;
       color: #4ade80;
@@ -89,9 +92,9 @@
       flex-shrink: 0;
       transition: color .3s, background .3s;
     }
-    #rtt-pill.warn { color: #fbbf24; background: rgba(251,191,36,.08); border-color: rgba(251,191,36,.2); }
-    #rtt-pill.bad  { color: #f87171; background: rgba(248,113,113,.08); border-color: rgba(248,113,113,.2); }
-    #rtt-pill.idle { color: #444;    background: transparent; border-color: #252525; }
+    #rtt-pill.warn, #batt-pill.warn { color: #fbbf24; background: rgba(251,191,36,.08); border-color: rgba(251,191,36,.2); }
+    #rtt-pill.bad,  #batt-pill.bad  { color: #f87171; background: rgba(248,113,113,.08); border-color: rgba(248,113,113,.2); }
+    #rtt-pill.idle, #batt-pill.idle { color: #444;    background: transparent; border-color: #252525; }
 
     /* keyboard shortcut hint */
     kbd {
@@ -385,6 +388,99 @@
     .modal-row { display: flex; gap: 8px; justify-content: flex-end; }
     .tb-btn.danger { color: #f87171; border-color: rgba(248,113,113,.4); }
 
+    /* ── Apps & system panel ─────────────────────────────────────────── */
+    #panel {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.7);
+      z-index: 210;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    #panel.visible { display: flex; }
+    .panel-box {
+      background: #161616;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 16px;
+      width: 100%;
+      max-width: 640px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .panel-box h3 { color: #ddd; font-size: 14px; font-weight: 600; }
+    .sys-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    #app-search {
+      width: 100%;
+      background: #0d0d0d;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      color: #ddd;
+      padding: 9px 10px;
+      font-size: 14px;
+    }
+    #app-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+      gap: 8px;
+      overflow-y: auto;
+      padding: 2px;
+    }
+    .app-tile {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 6px;
+      background: #1d1d1d;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .app-tile:active { background: #252525; }
+    .app-ic {
+      width: 38px; height: 38px;
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg,#3b3b3b,#2a2a2a);
+      color: #cbd5e1; font-size: 18px; font-weight: 600;
+    }
+    .app-nm {
+      color: #cbd; font-size: 11px; line-height: 1.2;
+      overflow: hidden; text-overflow: ellipsis;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    }
+
+    /* ── File browser & terminal (reuse #panel overlay styling) ──────── */
+    #files, #term {
+      display: none; position: fixed; inset: 0; z-index: 210;
+      background: rgba(0,0,0,.7); align-items: center; justify-content: center;
+      padding: 16px;
+    }
+    #files.visible, #term.visible { display: flex; }
+    .files-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .files-path {
+      color: #93c5fd; font-family: ui-monospace, monospace; font-size: 12px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 50%;
+    }
+    #files-list { overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+    .file-row {
+      display: flex; align-items: center; gap: 10px; padding: 9px 8px;
+      border-radius: 8px; cursor: pointer;
+    }
+    .file-row:active { background: #222; }
+    .file-row .fi { font-size: 17px; width: 22px; text-align: center; }
+    .file-row .fn { flex: 1; color: #ddd; font-size: 13px;
+                    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-row .fsz { color: #777; font-size: 11px; }
+    .file-row .fact { color: #93c5fd; font-size: 16px; padding: 0 6px; }
+    .file-row .fact.del { color: #f87171; }
+
     /* ── Toast notification ──────────────────────────────────────────── */
     #toast {
       position: fixed;
@@ -439,11 +535,18 @@
 
   <!-- Remote control toggle -->
   <button class="tb-btn sm" id="control-btn" onclick="toggleControl()" title="Remote control mode">🎮 Control</button>
+  <button class="tb-btn sm" id="pad-btn" onclick="togglePad()" title="Touchpad (relative) mode — drag to move cursor, tap to click">🖱 Pad</button>
   <button class="tb-btn sm" id="kb-btn" onclick="toggleKeyboard()" title="Show keyboard">⌨ KB</button>
   <button class="tb-btn sm" id="clip-btn" onclick="openClipboard()" title="Clipboard">📋 Clip</button>
+  <button class="tb-btn sm" id="audio-btn" onclick="toggleAudio()" title="Forward laptop audio">🔊 Audio</button>
+  <button class="tb-btn sm" id="panel-btn" onclick="openPanel()" title="Apps & system controls">☰ Apps</button>
+  <button class="tb-btn sm" id="files-btn" onclick="openFiles()" title="File browser">📁 Files</button>
+  <button class="tb-btn sm" id="term-btn" onclick="openTerm()" title="Web terminal">&gt;_ Term</button>
 
-  <!-- RTT -->
+  <!-- Auto quality + RTT + battery -->
+  <button class="tb-btn sm" id="auto-btn" onclick="toggleAuto()" title="Auto-adjust quality to network">📶 Auto</button>
   <span id="rtt-pill" class="idle">RTT —</span>
+  <span id="batt-pill" class="idle" style="display:none"></span>
 </div>
 
 <!-- Hidden input that receives the OS keyboard -->
@@ -476,6 +579,59 @@
       <button class="tb-btn sm" onclick="closeModal()">Cancel</button>
       <button class="tb-btn sm" id="modal-secondary" onclick="modalSecondary()" style="display:none">Get from laptop</button>
       <button class="tb-btn sm active" id="modal-primary" onclick="modalPrimary()">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- Apps & system controls panel -->
+<div id="panel" onclick="if(event.target===this)closePanel()">
+  <div class="panel-box">
+    <h3>System</h3>
+    <div class="sys-row">
+      <button class="tb-btn sm" onclick="sysAction('vol_down')">🔉 Vol −</button>
+      <button class="tb-btn sm" onclick="sysAction('vol_up')">🔊 Vol +</button>
+      <button class="tb-btn sm" onclick="sysAction('mute')">🔇 Mute</button>
+      <button class="tb-btn sm" onclick="sysAction('media_prev')">⏮</button>
+      <button class="tb-btn sm" onclick="sysAction('media_play')">⏯</button>
+      <button class="tb-btn sm" onclick="sysAction('media_next')">⏭</button>
+      <button class="tb-btn sm" onclick="sysAction('lock')">🔒 Lock</button>
+      <button class="tb-btn sm danger" onclick="sysAction('suspend')">⏻ Sleep</button>
+    </div>
+    <h3>Apps</h3>
+    <input id="app-search" placeholder="Search apps…" oninput="_renderApps(this.value)" autocomplete="off">
+    <div id="app-grid"></div>
+    <div class="modal-row">
+      <button class="tb-btn sm" onclick="closePanel()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- File browser -->
+<div id="files" onclick="if(event.target===this)closeFiles()">
+  <div class="panel-box">
+    <h3>Files</h3>
+    <div class="files-bar">
+      <button class="tb-btn sm" id="files-up" onclick="_filesUp()">⬆ Up</button>
+      <span id="files-path" class="files-path">~</span>
+      <span style="flex:1"></span>
+      <button class="tb-btn sm" onclick="_filesMkdir()">＋ Folder</button>
+      <button class="tb-btn sm" onclick="document.getElementById('files-upload').click()">⬆ Upload</button>
+      <input type="file" id="files-upload" style="display:none" multiple onchange="_filesUpload(this.files)">
+    </div>
+    <div id="files-list"></div>
+    <div class="modal-row">
+      <button class="tb-btn sm" onclick="closeFiles()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Web terminal -->
+<div id="term" onclick="if(event.target===this)closeTerm()">
+  <div class="panel-box" style="max-width:900px;height:80vh">
+    <h3>Terminal</h3>
+    <div id="term-host" style="flex:1;min-height:0;background:#000;border-radius:8px;overflow:hidden"></div>
+    <div class="modal-row">
+      <button class="tb-btn sm" onclick="closeTerm()">Close</button>
     </div>
   </div>
 </div>
@@ -583,13 +739,23 @@ function setFps(fps) {
 
 // ─── Remote control state ─────────────────────────────────────────────────
 let controlMode  = false;
+let padMode      = false;       // relative / touchpad pointer mode
+let audioOn      = false;       // forward laptop audio to the tablet
 let _controlCap  = false;
 let _clipboardCap = false;
+let _audioCap     = false;
+let _appsCap      = false;
+let _systemCap    = false;
+const PAD_SENS   = 1.6;         // touchpad cursor sensitivity multiplier
 const stickyMods = new Set();   // 'ctrl' | 'alt' | 'shift' | 'super'
+
+// Base URLs — derive scheme from how the page was loaded (http→ws, https→wss)
+const HTTP_BASE = `${location.protocol}//${location.hostname}:8766`;
+const WS_BASE   = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.hostname}:8765`;
 
 // Fire-and-forget input dispatcher
 function send(type, payload = {}) {
-  fetch(`http://${location.hostname}:8766/input`, {
+  fetch(`${HTTP_BASE}/input`, {
     method: 'POST',
     body:   JSON.stringify({ type, ...payload }),
     keepalive: true,
@@ -613,8 +779,251 @@ function toggleControl() {
     }
     toast('Control mode ON — tap to click, hold for right-click');
   } else {
+    padMode = false;
+    document.getElementById('pad-btn').classList.remove('active');
     toast('Control mode OFF');
   }
+}
+
+function togglePad() {
+  if (!_controlCap) { toast('xdotool not installed on the laptop'); return; }
+  padMode = !padMode;
+  document.getElementById('pad-btn').classList.toggle('active', padMode);
+  if (padMode && !controlMode) toggleControl();   // touchpad implies control
+  toast(padMode ? 'Touchpad mode — drag to move, tap to click'
+                : 'Touchpad mode OFF (absolute tap-to-position)');
+}
+
+// Audio rides exactly one active stream (the monitor captures system-wide
+// playback regardless of which screen is shown) — prefer laptop.
+function _audioOwner() {
+  if (!audioOn) return null;
+  if (streams.laptop.active)   return 'laptop';
+  if (streams.external.active) return 'external';
+  return null;
+}
+
+function toggleAudio() {
+  if (!_audioCap) { toast('No audio source on the laptop (needs PipeWire/Pulse + wpctl)'); return; }
+  audioOn = !audioOn;
+  document.getElementById('audio-btn').classList.toggle('active-green', audioOn);
+  toast(audioOn ? 'Audio ON' : 'Audio OFF');
+  _applyAudio();
+}
+
+// Reconnect only the streams whose audio state needs to change, and set the
+// <video> muted flag (unmuting here is allowed — it runs in a tap handler).
+function _applyAudio() {
+  const owner = _audioOwner();
+  for (const [id, s] of Object.entries(streams)) {
+    const want = (id === owner);
+    s.video.muted = !want;
+    if (s.active && (s._hasAudio || false) !== want) {
+      s.delay = 200;
+      s._connect();
+    }
+  }
+}
+
+// ─── Apps & system panel ────────────────────────────────────────────────────
+let _appsList = null;
+
+function openPanel()  { document.getElementById('panel').classList.add('visible'); _loadApps(); }
+function closePanel() { document.getElementById('panel').classList.remove('visible'); }
+
+async function _loadApps() {
+  const grid = document.getElementById('app-grid');
+  if (_appsList === null) {
+    grid.textContent = 'Loading…';
+    try {
+      const r = await fetch(`${HTTP_BASE}/apps`);
+      _appsList = (await r.json()).apps || [];
+    } catch (_) { _appsList = []; }
+  }
+  _renderApps(document.getElementById('app-search').value);
+}
+
+function _renderApps(filter) {
+  const grid = document.getElementById('app-grid');
+  const f = (filter || '').trim().toLowerCase();
+  const list = (_appsList || []).filter(a => !f || a.name.toLowerCase().includes(f));
+  grid.innerHTML = '';
+  if (!list.length) {
+    const msg = document.createElement('div');
+    msg.style.cssText = 'color:#777;font-size:12px;padding:8px';
+    msg.textContent = _appsCap ? 'No matching apps'
+                               : 'gtk-launch not installed on the laptop';
+    grid.appendChild(msg);
+    return;
+  }
+  for (const a of list.slice(0, 250)) {
+    const tile = document.createElement('div');
+    tile.className = 'app-tile';
+    const ic = document.createElement('div');
+    ic.className = 'app-ic';
+    ic.textContent = (a.name[0] || '?').toUpperCase();
+    const nm = document.createElement('div');
+    nm.className = 'app-nm';
+    nm.textContent = a.name;
+    tile.append(ic, nm);
+    tile.onclick = () => launchApp(a.id, a.name);
+    grid.appendChild(tile);
+  }
+}
+
+function launchApp(id, name) {
+  fetch(`${HTTP_BASE}/launch`, {
+    method: 'POST', body: JSON.stringify({ id }),
+  }).then(r => toast(r.ok ? `Launching ${name}` : 'Launch failed'))
+    .catch(() => toast('Launch failed'));
+}
+
+function sysAction(action) {
+  fetch(`${HTTP_BASE}/system`, {
+    method: 'POST', body: JSON.stringify({ action }),
+  }).then(r => { if (!r.ok) toast('Action not available'); })
+    .catch(() => toast('Action failed'));
+}
+
+// ─── File browser ───────────────────────────────────────────────────────────
+let _filesCwd = '';
+
+function openFiles()  { document.getElementById('files').classList.add('visible'); _filesLoad(''); }
+function closeFiles() { document.getElementById('files').classList.remove('visible'); }
+
+function _fmtSize(n) {
+  if (n < 1024) return n + ' B';
+  const u = ['KB', 'MB', 'GB', 'TB']; let i = -1;
+  do { n /= 1024; i++; } while (n >= 1024 && i < u.length - 1);
+  return n.toFixed(n < 10 ? 1 : 0) + ' ' + u[i];
+}
+
+async function _filesLoad(path) {
+  const list = document.getElementById('files-list');
+  list.textContent = 'Loading…';
+  let d;
+  try { d = await (await fetch(`${HTTP_BASE}/files?path=${encodeURIComponent(path)}`)).json(); }
+  catch (_) { list.textContent = 'Error'; return; }
+  if (d.error) { list.textContent = d.error; return; }
+  _filesCwd = d.path;
+  document.getElementById('files-path').textContent = '~/' + (d.path || '');
+  document.getElementById('files-up').style.visibility = (d.parent === null) ? 'hidden' : 'visible';
+  list.innerHTML = '';
+  for (const e of d.entries) {
+    const row  = document.createElement('div'); row.className = 'file-row';
+    const ic   = document.createElement('span'); ic.className = 'fi'; ic.textContent = e.dir ? '📁' : '📄';
+    const nm   = document.createElement('span'); nm.className = 'fn'; nm.textContent = e.name;
+    row.append(ic, nm);
+    const child = (_filesCwd ? _filesCwd + '/' : '') + e.name;
+    if (e.dir) {
+      row.onclick = () => _filesLoad(child);
+    } else {
+      const sz = document.createElement('span'); sz.className = 'fsz'; sz.textContent = _fmtSize(e.size);
+      const dl = document.createElement('span'); dl.className = 'fact'; dl.textContent = '⬇'; dl.title = 'Download';
+      dl.onclick = (ev) => { ev.stopPropagation(); _filesDownload(child, e.name); };
+      row.append(sz, dl);
+    }
+    const rn  = document.createElement('span'); rn.className = 'fact'; rn.textContent = '✎'; rn.title = 'Rename';
+    rn.onclick  = (ev) => { ev.stopPropagation(); _filesRename(child, e.name); };
+    const del = document.createElement('span'); del.className = 'fact del'; del.textContent = '🗑'; del.title = 'Delete';
+    del.onclick = (ev) => { ev.stopPropagation(); _filesDelete(child, e.name); };
+    row.append(rn, del);
+    list.appendChild(row);
+  }
+  if (!d.entries.length) {
+    const m = document.createElement('div');
+    m.style.cssText = 'color:#777;font-size:12px;padding:8px';
+    m.textContent = 'Empty folder';
+    list.appendChild(m);
+  }
+}
+
+function _filesUp() {
+  if (!_filesCwd) return;
+  _filesLoad(_filesCwd.includes('/') ? _filesCwd.slice(0, _filesCwd.lastIndexOf('/')) : '');
+}
+
+function _filesDownload(path, name) {
+  const a = document.createElement('a');
+  a.href = `${HTTP_BASE}/download?path=${encodeURIComponent(path)}`;
+  a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+async function _fileop(op, path, arg) {
+  try {
+    const r = await fetch(`${HTTP_BASE}/fileop`, { method: 'POST', body: JSON.stringify({ op, path, arg }) });
+    return r.ok;
+  } catch (_) { return false; }
+}
+
+async function _filesMkdir() {
+  const name = prompt('New folder name:'); if (!name) return;
+  (await _fileop('mkdir', _filesCwd, name)) ? _filesLoad(_filesCwd) : toast('Could not create folder');
+}
+async function _filesRename(path, cur) {
+  const name = prompt('Rename to:', cur); if (!name || name === cur) return;
+  (await _fileop('rename', path, name)) ? _filesLoad(_filesCwd) : toast('Rename failed');
+}
+async function _filesDelete(path, name) {
+  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+  (await _fileop('delete', path, '')) ? _filesLoad(_filesCwd) : toast('Delete failed');
+}
+
+async function _filesUpload(fileList) {
+  for (const f of fileList) {
+    try {
+      await fetch(`${HTTP_BASE}/upload?path=${encodeURIComponent(_filesCwd)}&name=${encodeURIComponent(f.name)}`,
+                  { method: 'POST', body: f });
+      toast(`Uploaded ${f.name}`);
+    } catch (_) { toast(`Upload failed: ${f.name}`); }
+  }
+  document.getElementById('files-upload').value = '';
+  _filesLoad(_filesCwd);
+}
+
+// ─── Web terminal ─────────────────────────────────────────────────────────
+let _term = null, _termFit = null, _termWs = null, _termRO = null;
+
+function openTerm() {
+  if (typeof Terminal === 'undefined') { toast('xterm.js not loaded — run start.sh to fetch it'); return; }
+  document.getElementById('term').classList.add('visible');
+  if (!_term) {
+    _term = new Terminal({
+      cursorBlink: true, fontSize: 13,
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+      theme: { background: '#000000' },
+    });
+    try { _termFit = new FitAddon.FitAddon(); _term.loadAddon(_termFit); } catch (_) {}
+    _term.open(document.getElementById('term-host'));
+    _term.onData(d => { if (_termWs && _termWs.readyState === 1) _termWs.send(JSON.stringify({ i: d })); });
+    _termRO = new ResizeObserver(() => _termResize());
+    _termRO.observe(document.getElementById('term-host'));
+  }
+  _termConnect();
+  setTimeout(_termResize, 60);
+}
+
+function _termConnect() {
+  if (_termWs && (_termWs.readyState === 0 || _termWs.readyState === 1)) return;
+  _termWs = new WebSocket(`${WS_BASE}/pty`);
+  _termWs.onmessage = (ev) => _term.write(ev.data);
+  _termWs.onopen    = () => { _term.focus(); _termResize(); };
+  _termWs.onclose   = () => { if (_term) _term.write('\r\n\x1b[33m[disconnected]\x1b[0m\r\n'); };
+}
+
+function _termResize() {
+  if (!_term || !_termFit) return;
+  try {
+    _termFit.fit();
+    if (_termWs && _termWs.readyState === 1)
+      _termWs.send(JSON.stringify({ r: [_term.cols, _term.rows] }));
+  } catch (_) {}
+}
+
+function closeTerm() {
+  document.getElementById('term').classList.remove('visible');
+  if (_termWs) { try { _termWs.close(); } catch (_) {} _termWs = null; }
 }
 
 // ─── Keyboard ─────────────────────────────────────────────────────────────
@@ -655,6 +1064,44 @@ function toggleKeyboard() {
   document.getElementById('kb-btn').classList.toggle('active', on);
 }
 
+function _focusKb() {
+  document.getElementById('kb-input').focus();
+}
+
+// Refocus the hidden input after a click ONLY if the keyboard is already
+// engaged — so tapping the remote screen doesn't dismiss the OS keyboard,
+// but also doesn't pop it up unexpectedly.
+function _keepKbAlive() {
+  if (document.getElementById('kb-bar').classList.contains('visible')) _focusKb();
+}
+
+function _modList(e) {
+  const mods = [];
+  if ((e && e.ctrlKey)  || stickyMods.has('ctrl'))  mods.push('ctrl');
+  if ((e && e.altKey)   || stickyMods.has('alt'))   mods.push('alt');
+  if ((e && e.shiftKey) || stickyMods.has('shift')) mods.push('shift');
+  if ((e && e.metaKey)  || stickyMods.has('super')) mods.push('super');
+  return mods;
+}
+
+function _consumeMods() {
+  if (!stickyMods.size) return;
+  stickyMods.clear();
+  document.querySelectorAll('.kb-btn[data-mod]').forEach(b => b.classList.remove('armed'));
+}
+
+// Send a printable string, applying any active modifiers to single chars.
+function _sendText(text) {
+  if (!text) return;
+  const mods = _modList(null);   // sticky mods only
+  if (mods.length && text.length === 1) {
+    send('key', { keys: `${mods.join('+')}+${text.toLowerCase()}` });
+  } else {
+    send('type', { text });
+  }
+  _consumeMods();
+}
+
 function _initKeyboard() {
   // Modifier toggles
   document.querySelectorAll('.kb-btn[data-mod]').forEach(btn => {
@@ -662,45 +1109,78 @@ function _initKeyboard() {
       const m = btn.dataset.mod;
       if (stickyMods.has(m)) { stickyMods.delete(m); btn.classList.remove('armed'); }
       else                   { stickyMods.add(m);   btn.classList.add('armed');    }
+      _focusKb();   // keep the OS keyboard up after arming a modifier
     });
   });
   // Special key buttons
   document.querySelectorAll('.kb-btn[data-key]').forEach(btn => {
-    btn.addEventListener('click', () => _flushModsAnd(btn.dataset.key));
+    btn.addEventListener('click', () => { _flushModsAnd(btn.dataset.key); _focusKb(); });
   });
   // "Type" → focus the hidden input (re-pop OS keyboard)
-  document.getElementById('kb-focus-btn').addEventListener('click', () => {
-    document.getElementById('kb-input').focus();
-  });
+  document.getElementById('kb-focus-btn').addEventListener('click', _focusKb);
 
-  // Captured keystrokes from the hidden input
   const inp = document.getElementById('kb-input');
-  inp.addEventListener('keydown', (e) => {
-    e.preventDefault();
-    const k    = e.key;
-    const sym  = _xdotoolKeysym(k);
-    const mods = [];
-    if (e.ctrlKey  || stickyMods.has('ctrl'))  mods.push('ctrl');
-    if (e.altKey   || stickyMods.has('alt'))   mods.push('alt');
-    if (e.shiftKey || stickyMods.has('shift')) mods.push('shift');
-    if (e.metaKey  || stickyMods.has('super')) mods.push('super');
+  let composing = false;
 
+  // ── keydown: only for keys that expose a usable e.key ───────────────────
+  // Android soft keyboards report key="Unidentified" / keyCode 229 for
+  // printable input; those are handled by the input/composition path below.
+  inp.addEventListener('keydown', (e) => {
+    if (e.key === 'Unidentified' || e.keyCode === 229 || e.isComposing || composing) return;
+    const sym  = _xdotoolKeysym(e.key);
+    const mods = _modList(e);
     if (sym) {
-      const combined = mods.length ? `${mods.join('+')}+${sym}` : sym;
-      send('key', { keys: combined });
-    } else if (k.length === 1) {
-      if (mods.length) {
-        send('key', { keys: `${mods.join('+')}+${k.toLowerCase()}` });
-      } else {
-        send('type', { text: k });
-      }
+      e.preventDefault();
+      send('key', { keys: mods.length ? `${mods.join('+')}+${sym}` : sym });
+      _consumeMods();
+    } else if (e.key.length === 1 && mods.some(m => m !== 'shift')) {
+      // Ctrl/Alt/Super (+optional Shift) + char → key combo (e.g. Ctrl+C)
+      e.preventDefault();
+      send('key', { keys: `${mods.join('+')}+${e.key.toLowerCase()}` });
+      _consumeMods();
     }
-    // Sticky mods are consumed by any actual keypress
-    stickyMods.clear();
-    document.querySelectorAll('.kb-btn[data-mod]').forEach(b => b.classList.remove('armed'));
+    // Plain printable keys (incl. Shift+letter) fall through to `input`.
   });
-  // Strip everything the input accumulates
-  inp.addEventListener('input', () => { inp.value = ''; });
+
+  // ── composition: predictive text / swipe-typing commit as one word ──────
+  inp.addEventListener('compositionstart', () => { composing = true; });
+  inp.addEventListener('compositionend', (e) => {
+    composing = false;
+    _sendText(e.data || '');
+    inp.value = '';
+  });
+
+  // ── input: the reliable path for soft keyboards & autocorrect ───────────
+  inp.addEventListener('input', (e) => {
+    if (composing || e.isComposing) { inp.value = ''; return; }
+    const it = e.inputType || 'insertText';
+    if (it === 'insertText' || it === 'insertReplacementText') {
+      _sendText(e.data != null ? e.data : inp.value);
+    } else if (it === 'insertCompositionText' || it === 'insertFromComposition') {
+      // handled by compositionend
+    } else if (it === 'deleteContentBackward' || it === 'deleteWordBackward') {
+      send('key', { keys: 'BackSpace' });
+    } else if (it === 'deleteContentForward') {
+      send('key', { keys: 'Delete' });
+    } else if (it === 'insertLineBreak' || it === 'insertParagraph') {
+      send('key', { keys: 'Return' });
+    }
+    inp.value = '';   // never let it accumulate
+  });
+
+  // ── keep the keyboard alive ─────────────────────────────────────────────
+  inp.addEventListener('blur', () => {
+    _consumeMods();   // a stale armed Ctrl must not poison the next keystroke
+    if (document.getElementById('kb-bar').classList.contains('visible')) {
+      setTimeout(_focusKb, 50);
+    }
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden &&
+        document.getElementById('kb-bar').classList.contains('visible')) {
+      _focusKb();
+    }
+  });
 }
 
 // ─── Clipboard / Send Text modal ──────────────────────────────────────────
@@ -736,7 +1216,7 @@ async function modalPrimary() {
   const text = document.getElementById('modal-text').value;
   if (!text) return;
   if (_modalMode === 'clip') {
-    await fetch(`http://${location.hostname}:8766/clipboard`, {
+    await fetch(`${HTTP_BASE}/clipboard`, {
       method: 'POST', body: JSON.stringify({ text }),
     }).catch(() => {});
     toast('Sent to laptop clipboard');
@@ -750,7 +1230,7 @@ async function modalPrimary() {
 async function modalSecondary() {
   // Only "Get from laptop" uses this
   try {
-    const r = await fetch(`http://${location.hostname}:8766/clipboard`);
+    const r = await fetch(`${HTTP_BASE}/clipboard`);
     const { text } = await r.json();
     document.getElementById('modal-text').value = text || '';
     if (navigator.clipboard && text) {
@@ -893,6 +1373,7 @@ class ScreenStream {
     let longPressTimer = null;
     let lastMoveSent   = 0;
     let lastScrollY    = null;
+    let lastRel        = null;        // last pointer pos for relative deltas
     const DRAG_THRESH  = 8;
     const LONG_MS      = 480;
     const MOVE_HZ      = 33;          // throttle drag-moves to ~30/s
@@ -934,10 +1415,15 @@ class ScreenStream {
         // Long-press → right-click
         longPressTimer = setTimeout(() => {
           longPressTimer = null;
-          const src = this._displayToSource(downAt.x, downAt.y);
-          if (src) {
-            send('click', { screen: this.id, x: src.x, y: src.y, button: 3 });
+          if (padMode) {
+            send('click', { button: 3 });   // right-click at current position
             ripple(downAt.x, downAt.y, true);
+          } else {
+            const src = this._displayToSource(downAt.x, downAt.y);
+            if (src) {
+              send('click', { screen: this.id, x: src.x, y: src.y, button: 3 });
+              ripple(downAt.x, downAt.y, true);
+            }
           }
           downAt = null;   // consumed
         }, LONG_MS);
@@ -974,16 +1460,27 @@ class ScreenStream {
       if (!dragging && (dx*dx + dy*dy) > DRAG_THRESH * DRAG_THRESH) {
         cancelLong();
         dragging = true;
-        const src = this._displayToSource(downAt.x, downAt.y);
-        if (src) send('down', { screen: this.id, x: src.x, y: src.y, button: 1 });
+        if (padMode) {
+          lastRel = { x: e.clientX, y: e.clientY };
+        } else {
+          const src = this._displayToSource(downAt.x, downAt.y);
+          if (src) send('down', { screen: this.id, x: src.x, y: src.y, button: 1 });
+        }
       }
 
       if (dragging) {
         const now = Date.now();
         if (now - lastMoveSent > 1000 / MOVE_HZ) {
           lastMoveSent = now;
-          const src = this._displayToSource(e.clientX, e.clientY);
-          if (src) send('move', { screen: this.id, x: src.x, y: src.y });
+          if (padMode) {
+            const rdx = Math.round((e.clientX - lastRel.x) * PAD_SENS);
+            const rdy = Math.round((e.clientY - lastRel.y) * PAD_SENS);
+            lastRel = { x: e.clientX, y: e.clientY };
+            if (rdx || rdy) send('rmove', { dx: rdx, dy: rdy });
+          } else {
+            const src = this._displayToSource(e.clientX, e.clientY);
+            if (src) send('move', { screen: this.id, x: src.x, y: src.y });
+          }
         }
       }
     });
@@ -998,9 +1495,16 @@ class ScreenStream {
       cancelLong();
 
       if (dragging) {
-        const src = this._displayToSource(e.clientX, e.clientY);
-        if (src) send('up', { screen: this.id, x: src.x, y: src.y, button: 1 });
+        if (!padMode) {
+          const src = this._displayToSource(e.clientX, e.clientY);
+          if (src) send('up', { screen: this.id, x: src.x, y: src.y, button: 1 });
+        }
         dragging = false;
+      } else if (padMode) {
+        // Touchpad: tap = left click at the current cursor position
+        send('click', { button: 1 });
+        ripple(e.clientX, e.clientY);
+        _keepKbAlive();
       } else {
         // Quick tap → check for double-tap (focus mode), else left click
         const now = Date.now();
@@ -1023,6 +1527,7 @@ class ScreenStream {
             send('click', { screen: this.id, x: src.x, y: src.y, button: 1 });
             ripple(e.clientX, e.clientY);
           }
+          _keepKbAlive();
         }
       }
       downAt = null;
@@ -1095,11 +1600,13 @@ class ScreenStream {
 
   _wsUrl() {
     const q    = QUALITY[currentQuality];
-    let   url  = `ws://${location.hostname}:8765/${this.id}?bitrate=${q.bitrate}&fps=${currentFps}`;
+    let   url  = `${WS_BASE}/${this.id}?bitrate=${q.bitrate}&fps=${currentFps}`;
     if (this._crop) {
       const { x, y, w, h } = this._crop;
       url += `&crop=${x},${y},${w},${h}`;
     }
+    this._hasAudio = (this.id === _audioOwner());
+    if (this._hasAudio) url += '&audio=1';
     return url;
   }
 
@@ -1239,16 +1746,44 @@ class ScreenStream {
   }
 }
 
-// ─── RTT measurement ───────────────────────────────────────────────────────
+// ─── RTT measurement + adaptive quality ─────────────────────────────────────
 const rttPill = document.getElementById('rtt-pill');
+const QORDER  = ['low', 'med', 'high'];
+let autoQuality = false;
+let _goodRun = 0, _badRun = 0;
+
+function toggleAuto() {
+  autoQuality = !autoQuality;
+  document.getElementById('auto-btn').classList.toggle('active', autoQuality);
+  _goodRun = _badRun = 0;
+  toast(autoQuality ? 'Auto quality ON — adapts to network' : 'Auto quality OFF');
+  try { localStorage.setItem('ss-auto', autoQuality ? '1' : '0'); } catch(_) {}
+}
+
+// Step quality up/down based on sustained RTT (hysteresis avoids oscillation).
+function _adaptQuality(rtt) {
+  if (!autoQuality) return;
+  const i = QORDER.indexOf(currentQuality);
+  if (rtt >= 120) {
+    _badRun++; _goodRun = 0;
+    if (_badRun >= 2 && i > 0) { _badRun = 0; setQuality(QORDER[i - 1]); }
+  } else if (rtt < 45) {
+    _goodRun++; _badRun = 0;
+    if (_goodRun >= 4 && i < QORDER.length - 1) { _goodRun = 0; setQuality(QORDER[i + 1]); }
+  } else {
+    _goodRun = _badRun = 0;
+  }
+}
+
 async function measureRTT() {
   try {
     const t0  = performance.now();
-    const res = await fetch(`http://${location.hostname}:8766/ping`, { cache: 'no-store' });
+    const res = await fetch(`${HTTP_BASE}/ping`, { cache: 'no-store' });
     if (!res.ok) throw new Error();
     const rtt = Math.round(performance.now() - t0);
     rttPill.textContent = `RTT ${rtt} ms`;
     rttPill.className   = rtt < 30 ? '' : rtt < 80 ? 'warn' : 'bad';
+    _adaptQuality(rtt);
   } catch(_) {
     rttPill.textContent = 'RTT —';
     rttPill.className   = 'idle';
@@ -1257,24 +1792,64 @@ async function measureRTT() {
 setInterval(measureRTT, 2000);
 measureRTT();
 
+// ─── Battery indicator ───────────────────────────────────────────────────────
+const battPill = document.getElementById('batt-pill');
+async function pollBattery() {
+  try {
+    const b = await (await fetch(`${HTTP_BASE}/battery`, { cache: 'no-store' })).json();
+    if (b && typeof b.capacity === 'number') {
+      const charging = /Charging|Full/i.test(b.status || '');
+      battPill.style.display = '';
+      battPill.textContent = `${charging ? '⚡' : '🔋'} ${b.capacity}%`;
+      battPill.className = b.capacity > 30 ? '' : b.capacity > 15 ? 'warn' : 'bad';
+    } else {
+      battPill.style.display = 'none';
+    }
+  } catch(_) { battPill.style.display = 'none'; }
+}
+setInterval(pollBattery, 60000);
+pollBattery();
+
+// ─── Orientation hint (once, on small portrait screens) ──────────────────────
+function _orientationHint() {
+  if (window.innerWidth < 700 && window.innerHeight > window.innerWidth) {
+    try { if (localStorage.getItem('ss-rot-hint')) return; } catch(_) {}
+    toast('Rotate to landscape for the best view');
+    try { localStorage.setItem('ss-rot-hint', '1'); } catch(_) {}
+  }
+}
+setTimeout(_orientationHint, 1500);
+
 // ─── Cursor highlight ──────────────────────────────────────────────────────
 let cursorOn     = false;
 let _cursorTimer = null;
 let _cursorCap   = false;  // server has xdotool
 
 // Check server capability
-fetch(`http://${location.hostname}:8766/capabilities`)
+fetch(`${HTTP_BASE}/capabilities`)
   .then(r => r.json())
   .then(c => {
     _cursorCap    = !!c.cursor;
     _controlCap   = !!c.control;
     _clipboardCap = !!c.clipboard;
+    _audioCap     = !!c.audio;
+    _appsCap      = !!c.apps;
+    _systemCap    = !!c.system;
     const cb = document.getElementById('cursor-btn');
     if (!_cursorCap) { cb.style.opacity = '.3'; cb.title = 'xdotool not installed'; }
     const ctl = document.getElementById('control-btn');
     if (!_controlCap)   { ctl.style.opacity = '.3'; ctl.title = 'xdotool not installed'; }
     const clp = document.getElementById('clip-btn');
     if (!_clipboardCap) { clp.style.opacity = '.3'; clp.title = 'xclip not installed'; }
+    const aud = document.getElementById('audio-btn');
+    if (!_audioCap) { aud.style.opacity = '.3'; aud.title = 'No audio source on the laptop'; }
+    const pnl = document.getElementById('panel-btn');
+    if (!_appsCap && !_systemCap) { pnl.style.opacity = '.3'; pnl.title = 'No launcher/system tools on the laptop'; }
+    const tbn = document.getElementById('term-btn');
+    if (!c.terminal || typeof Terminal === 'undefined') {
+      tbn.style.opacity = '.3';
+      tbn.title = (typeof Terminal === 'undefined') ? 'xterm.js not loaded' : 'PTY unavailable on the laptop';
+    }
   })
   .catch(() => {});
 
@@ -1303,7 +1878,7 @@ function _startCursorPoll() {
   _cursorTimer = setInterval(async () => {
     if (!cursorOn) return;
     try {
-      const r = await fetch(`http://${location.hostname}:8766/cursor`, { cache: 'no-store' });
+      const r = await fetch(`${HTTP_BASE}/cursor`, { cache: 'no-store' });
       if (!r.ok) return;
       const { x, y, screen, sw, sh } = await r.json();
       if (screen === null || x < 0) {
@@ -1448,6 +2023,8 @@ function setView(view) {
   showLaptop   ? streams.laptop.start()   : streams.laptop.stop();
   showExternal ? streams.external.start() : streams.external.stop();
 
+  if (audioOn) _applyAudio();   // move audio onto a still-active stream
+
   try { localStorage.setItem('ss-view', view); } catch(_) {}
 }
 
@@ -1502,7 +2079,9 @@ document.addEventListener('visibilitychange', () => {
 
 // ─── Keyboard shortcuts ────────────────────────────────────────────────────
 document.addEventListener('keydown', (e) => {
-  if (e.target.tagName === 'INPUT') return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  // Don't hijack keys while any overlay (terminal, files, apps, text modal) is open
+  if (document.querySelector('#term.visible, #files.visible, #panel.visible, #modal.visible')) return;
   switch (e.key.toLowerCase()) {
     case '1':          setView('laptop');   toast('Laptop');   break;
     case '2':          setView('external'); toast('External'); break;
@@ -1553,6 +2132,13 @@ if (!mpegts.isSupported()) {
       );
     }
   }
+  try {
+    if (localStorage.getItem('ss-auto') === '1') {
+      autoQuality = true;
+      document.getElementById('auto-btn').classList.add('active');
+    }
+  } catch(_) {}
+
   setView(savedView || 'laptop');
   _initKeyboard();
 }

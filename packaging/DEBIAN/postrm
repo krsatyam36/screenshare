@@ -3,5 +3,8 @@
 if [ "$1" = "purge" ]; then
     rm -rf /opt/screen-share-tab/.venv
     rm -f  /opt/screen-share-tab/mpegts.min.js
+    rm -f  /opt/screen-share-tab/xterm.js \
+           /opt/screen-share-tab/xterm.css \
+           /opt/screen-share-tab/xterm-addon-fit.js
 fi
 exit 0

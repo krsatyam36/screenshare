@@ -1,13 +1,16 @@
 Package: screen-share-tab
-Version: 1.0.0
+Version: 1.1.0
 Architecture: amd64
 Maintainer: Little Place Labs <hello@littleplacelabs.com>
 Depends: ffmpeg, python3 (>= 3.9), python3-venv, curl
-Recommends: xdotool, vainfo
-Description: Stream laptop screens to a tablet browser over WiFi
+Recommends: xdotool, xclip, vainfo, openssl, libglib2.0-bin
+Description: Stream and remote-control a Linux laptop from a tablet browser
  Stream your laptop display and external monitor to any browser on your
- local network. Supports hardware-accelerated encoding (NVENC/VAAPI),
- quality and FPS controls, cursor highlighting, pinch-to-zoom, keyboard
- shortcuts, mDNS discovery, and auto-reconnect.
+ local network, plus full remote control: reliable mobile typing, touchpad
+ mode, audio forwarding, an app launcher with system controls, file transfer,
+ and a web terminal. Hardware-accelerated encoding (NVENC/VAAPI), cursor
+ highlighting, pinch-to-zoom, mDNS discovery, and auto-reconnect.
+ .
+ Secured by default with a PIN and self-signed TLS (https/wss).
  .
  Run 'screen-share-tab' in any terminal, then open the URL on your tablet.
