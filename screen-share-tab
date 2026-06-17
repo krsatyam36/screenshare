@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+exec /home/kumarsatyam/Projects/screenshare/start.sh "$@"

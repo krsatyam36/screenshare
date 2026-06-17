@@ -1,7 +1,7 @@
 Package: screen-share-tab
-Version: 1.1.0
+Version: 2.0.0
 Architecture: amd64
-Maintainer: Little Place Labs <hello@littleplacelabs.com>
+Maintainer: Kumar Satyam <kumarsatyam3135@gmail.com>
 Depends: ffmpeg, python3 (>= 3.9), python3-venv, curl
 Recommends: xdotool, xclip, vainfo, openssl, libglib2.0-bin
 Description: Stream and remote-control a Linux laptop from a tablet browser

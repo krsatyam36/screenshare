@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
   <title>Screen Stream</title>
+  <link rel="icon" type="image/svg+xml" href="screenshare.svg">
   <script src="mpegts.min.js"></script>
   <link rel="stylesheet" href="xterm.css" onerror="this.dataset.failed=1">
   <script src="xterm.js"></script>
@@ -449,7 +450,9 @@
       display: flex; align-items: center; justify-content: center;
       background: linear-gradient(135deg,#3b3b3b,#2a2a2a);
       color: #cbd5e1; font-size: 18px; font-weight: 600;
+      overflow: hidden;
     }
+    .app-img { width: 38px; height: 38px; object-fit: contain; }
     .app-nm {
       color: #cbd; font-size: 11px; line-height: 1.2;
       overflow: hidden; text-overflow: ellipsis;
@@ -771,12 +774,8 @@ function toggleControl() {
     document.getElementById(`wrap-${id}`).classList.toggle('control', controlMode);
   }
   if (controlMode) {
-    // Reset any pinch-zoom transform so coords stay accurate
-    for (const s of Object.values(streams)) {
-      s._scale = 1;
-      s.video.style.transform = '';
-      s.video.style.transformOrigin = '';
-    }
+    // Zoom/pan stay active in control mode — mouse mapping reads the live
+    // bounding rect, so it remains accurate under any transform.
     toast('Control mode ON — tap to click, hold for right-click');
   } else {
     padMode = false;
@@ -861,7 +860,15 @@ function _renderApps(filter) {
     tile.className = 'app-tile';
     const ic = document.createElement('div');
     ic.className = 'app-ic';
-    ic.textContent = (a.name[0] || '?').toUpperCase();
+    ic.textContent = (a.name[0] || '?').toUpperCase();   // letter fallback
+    // Try the real .desktop icon; fall back to the letter tile on error.
+    const img = document.createElement('img');
+    img.className = 'app-img';
+    img.loading = 'lazy';
+    img.alt = '';
+    img.onload  = () => { ic.textContent = ''; ic.appendChild(img); };
+    img.onerror = () => {};
+    img.src = `${HTTP_BASE}/appicon?id=${encodeURIComponent(a.id)}`;
     const nm = document.createElement('div');
     nm.className = 'app-nm';
     nm.textContent = a.name;
@@ -995,10 +1002,24 @@ function openTerm() {
       theme: { background: '#000000' },
     });
     try { _termFit = new FitAddon.FitAddon(); _term.loadAddon(_termFit); } catch (_) {}
-    _term.open(document.getElementById('term-host'));
+    const host = document.getElementById('term-host');
+    _term.open(host);
     _term.onData(d => { if (_termWs && _termWs.readyState === 1) _termWs.send(JSON.stringify({ i: d })); });
     _termRO = new ResizeObserver(() => _termResize());
-    _termRO.observe(document.getElementById('term-host'));
+    _termRO.observe(host);
+    // Two-finger drag scrolls the terminal scrollback (mouse-wheel style).
+    let _tsy = null;
+    host.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) _tsy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+    }, { passive: true });
+    host.addEventListener('touchmove', (e) => {
+      if (e.touches.length !== 2 || _tsy === null) return;
+      e.preventDefault();
+      const y = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      const dy = y - _tsy;
+      if (Math.abs(dy) > 12) { _term.scrollLines(dy > 0 ? -1 : 1); _tsy = y; }
+    }, { passive: false });
+    host.addEventListener('touchend', (e) => { if (e.touches.length < 2) _tsy = null; });
   }
   _termConnect();
   setTimeout(_termResize, 60);
@@ -1273,8 +1294,9 @@ class ScreenStream {
     this._tapTime     = 0;    // for double-tap
     this._tapX        = 0;
     this._tapY        = 0;
-    this._pinch       = null; // for pinch-zoom
-    this._scale       = 1;
+    this._scale       = 1;   // local zoom factor
+    this._tx          = 0;    // local pan offset (px)
+    this._ty          = 0;
     this._notified    = false;
     this._crop        = null; // focus mode crop region
 
@@ -1308,7 +1330,7 @@ class ScreenStream {
     });
 
     // Pinch-to-zoom
-    this._setupPinch();
+    this._setupGestures();
   }
 
   // Map a display coordinate to source video pixel coords (letterbox-aware)
@@ -1435,23 +1457,8 @@ class ScreenStream {
       if (!pointers.has(e.pointerId)) return;
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-      // Two-finger scroll
-      if (pointers.size >= 2 && e.pointerType === 'touch') {
-        const arr = [...pointers.values()];
-        const midY = (arr[0].y + arr[1].y) / 2;
-        if (lastScrollY !== null) {
-          const dy = midY - lastScrollY;
-          if (Math.abs(dy) > 12) {
-            // dy > 0 (fingers moved down) → content moves down → scroll up
-            const src = this._displayToSource(arr[0].x, arr[0].y) ||
-                        this._displayToSource(arr[1].x, arr[1].y);
-            if (src) send('scroll', { screen: this.id, x: src.x, y: src.y,
-                                      dy: dy > 0 ? -1 : 1 });
-            lastScrollY = midY;
-          }
-        }
-        return;
-      }
+      // Two-finger gestures (zoom / pan / scroll) are owned by _setupGestures.
+      if (pointers.size >= 2) return;
 
       if (!downAt || e.pointerId !== downAt.pid) return;
       const dx = e.clientX - downAt.x;
@@ -1537,47 +1544,85 @@ class ScreenStream {
     el.addEventListener('pointercancel', finish);
   }
 
-  _setupPinch() {
+  // Apply the current zoom/pan transform, clamped so the frame keeps covering
+  // the viewport. transform-origin 0 0 keeps the math simple & invariant for
+  // mouse-coordinate mapping (which reads the live bounding rect).
+  _applyTransform() {
     const el = this.video;
+    if (this._scale <= 1.001) {
+      this._scale = 1; this._tx = 0; this._ty = 0;
+      el.style.transform = ''; el.style.transformOrigin = '';
+      return;
+    }
+    const rect = this.wrap.getBoundingClientRect();
+    const maxX = rect.width  * (this._scale - 1);
+    const maxY = rect.height * (this._scale - 1);
+    this._tx = Math.min(0, Math.max(-maxX, this._tx));
+    this._ty = Math.min(0, Math.max(-maxY, this._ty));
+    el.style.transformOrigin = '0 0';
+    el.style.transform = `translate(${this._tx}px, ${this._ty}px) scale(${this._scale})`;
+  }
+
+  // Zoom to a new scale while keeping the screen point `m` (clientX/Y) fixed.
+  _zoomAt(s2, m) {
+    s2 = Math.min(5, Math.max(1, s2));
+    const rect = this.wrap.getBoundingClientRect();
+    const px = m.x - rect.left, py = m.y - rect.top;
+    const s = this._scale || 1;
+    this._tx = px - ((px - this._tx) / s) * s2;
+    this._ty = py - ((py - this._ty) / s) * s2;
+    this._scale = s2;
+    this._applyTransform();
+  }
+
+  _panBy(dx, dy) { this._tx += dx; this._ty += dy; this._applyTransform(); }
+
+  // Unified two-finger gestures — work in ALL modes (view, control, cursor):
+  //   • pinch (distance change)      → zoom toward the fingers
+  //   • parallel drag while zoomed   → pan around the frame
+  //   • parallel drag while 1× + control → mouse-wheel scroll on the laptop
+  _setupGestures() {
+    const el = this.video;
+    let g = null;
+    const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const mid  = (t) => ({ x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 });
+
     el.addEventListener('touchstart', (e) => {
-      if (controlMode) return;
       if (e.touches.length === 2) {
         e.preventDefault();
-        const d = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        // anchor zoom to the midpoint between the two fingers
-        const mx   = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-        const my   = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-        const rect = el.getBoundingClientRect();
-        const ox   = ((mx - rect.left) / rect.width)  * 100;
-        const oy   = ((my - rect.top)  / rect.height) * 100;
-        this._pinch = { startDist: d, startScale: this._scale, ox, oy };
+        const m = mid(e.touches);
+        g = { mode: null, startDist: dist(e.touches), startScale: this._scale,
+              lastMid: m, lastScrollY: m.y };
       }
     }, { passive: false });
 
     el.addEventListener('touchmove', (e) => {
-      if (controlMode) return;
-      if (e.touches.length === 2 && this._pinch) {
-        e.preventDefault();
-        const d = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        const s = Math.min(4, Math.max(1, this._pinch.startScale * (d / this._pinch.startDist)));
-        this._scale = s;
-        if (s === 1) {
-          el.style.transform       = '';
-          el.style.transformOrigin = '';
-        } else {
-          el.style.transformOrigin = `${this._pinch.ox}% ${this._pinch.oy}%`;
-          el.style.transform       = `scale(${s})`;
+      if (e.touches.length !== 2 || !g) return;
+      e.preventDefault();
+      const d = dist(e.touches), m = mid(e.touches);
+      if (!g.mode) {
+        if (Math.abs(d - g.startDist) > 12) g.mode = 'zoom';
+        else if (Math.hypot(m.x - g.lastMid.x, m.y - g.lastMid.y) > 8)
+          g.mode = (this._scale > 1) ? 'pan' : (controlMode ? 'scroll' : 'pan');
+      }
+      if (g.mode === 'zoom') {
+        this._zoomAt(g.startScale * (d / g.startDist), m);
+      } else if (g.mode === 'pan') {
+        this._panBy(m.x - g.lastMid.x, m.y - g.lastMid.y);
+      } else if (g.mode === 'scroll') {
+        const dy = m.y - g.lastScrollY;
+        if (Math.abs(dy) > 10) {
+          const src = this._displayToSource(m.x, m.y);
+          if (src) send('scroll', { screen: this.id, x: src.x, y: src.y, dy: dy > 0 ? -1 : 1 });
+          g.lastScrollY = m.y;
         }
       }
+      g.lastMid = m;
     }, { passive: false });
 
-    el.addEventListener('touchend', () => { this._pinch = null; });
+    const end = (e) => { if (e.touches.length < 2) g = null; };
+    el.addEventListener('touchend', end);
+    el.addEventListener('touchcancel', end);
   }
 
   start() {
@@ -2041,6 +2086,8 @@ document.addEventListener('touchstart', (e) => {
 
 document.addEventListener('touchend', (e) => {
   if (_dividerDrag || controlMode) return;
+  // Don't switch screens while a view is zoomed in (you're panning).
+  if (Object.values(streams).some(s => s.active && s._scale > 1)) return;
   const dx = e.changedTouches[0].clientX - _tx;
   const dy = e.changedTouches[0].clientY - _ty;
   if (Math.abs(dy) > SWIPE_MAX_VT || Math.abs(dx) < SWIPE_MIN) return;

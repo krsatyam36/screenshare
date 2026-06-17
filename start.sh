@@ -52,44 +52,36 @@ if [ -w "$VENV_DIR" ]; then
 fi
 echo -e "  ${GRN}✓${NC} Python packages ready"
 
-# ── 3. mpegts.js ─────────────────────────────────────────────────────────────
-MPEGTS_JS="$SCRIPT_DIR/mpegts.min.js"
-MPEGTS_URL="https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.min.js"
+# ── 3. Browser assets (served locally from the package web/ dir) ─────────────
+WEB_DIR="$SCRIPT_DIR/src/screenshare/web"
+mkdir -p "$WEB_DIR" 2>/dev/null || true
+# Refresh the favicon/brand logo from the committed source asset.
+[ -f "$SCRIPT_DIR/assets/screenshare.svg" ] && cp -f "$SCRIPT_DIR/assets/screenshare.svg" "$WEB_DIR/screenshare.svg" 2>/dev/null || true
 
-if [ ! -f "$MPEGTS_JS" ]; then
-  if [ -w "$SCRIPT_DIR" ]; then
-    echo -e "  ${YLW}→${NC} Downloading mpegts.js (one-time)..."
-    if command -v curl &>/dev/null; then
-      curl -sL "$MPEGTS_URL" -o "$MPEGTS_JS"
-    elif command -v wget &>/dev/null; then
-      wget -q "$MPEGTS_URL" -O "$MPEGTS_JS"
-    else
-      echo -e "${RED}ERROR${NC}: need curl or wget to download mpegts.js"
-      exit 1
-    fi
-  else
-    echo -e "${RED}ERROR${NC}: mpegts.js not found at $MPEGTS_JS"
-    echo "  Try: sudo apt install --reinstall screen-share-tab"
-    exit 1
-  fi
-fi
-echo -e "  ${GRN}✓${NC} mpegts.js ready"
-
-# ── 3b. xterm.js (optional — enables the web terminal) ───────────────────────
 download_asset() {
   # $1 = local file, $2 = url
-  local file="$SCRIPT_DIR/$1"
+  local file="$WEB_DIR/$1"
   [ -f "$file" ] && return 0
-  if [ -w "$SCRIPT_DIR" ]; then
+  if [ -w "$WEB_DIR" ]; then
+    echo -e "  ${YLW}→${NC} Downloading $1 (one-time)..."
     if command -v curl &>/dev/null;   then curl -sL "$2" -o "$file"
     elif command -v wget &>/dev/null; then wget -q  "$2" -O "$file"
     fi
   fi
 }
+
+download_asset "mpegts.min.js"       "https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.min.js"
+if [ ! -f "$WEB_DIR/mpegts.min.js" ]; then
+  echo -e "${RED}ERROR${NC}: mpegts.js not found and could not be downloaded (need curl/wget + internet)."
+  exit 1
+fi
+echo -e "  ${GRN}✓${NC} mpegts.js ready"
+
+# xterm.js (optional — enables the web terminal)
 download_asset "xterm.js"            "https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.js"
 download_asset "xterm.css"           "https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css"
 download_asset "xterm-addon-fit.js"  "https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.js"
-if [ -f "$SCRIPT_DIR/xterm.js" ]; then
+if [ -f "$WEB_DIR/xterm.js" ]; then
   echo -e "  ${GRN}✓${NC} xterm.js ready (web terminal available)"
 else
   echo -e "  ${YLW}!${NC} xterm.js not downloaded — web terminal disabled"
@@ -121,7 +113,7 @@ fi
 echo ""
 
 # ── 6. Kill any previous instance still holding the ports ────────────────────
-pkill -f "screen-share-tab/server.py\|screen-stream/server.py" 2>/dev/null || true
+pkill -f "screenshare/server.py\|-m screenshare\|screen-share-tab/server.py\|screen-stream/server.py" 2>/dev/null || true
 
 # Also kill anything still holding ports 8765/8766
 for _port in 8765 8766; do
@@ -145,33 +137,22 @@ while lsof -ti tcp:8765 &>/dev/null || lsof -ti tcp:8766 &>/dev/null; do
 done
 
 # ── 7. Security: PIN + TLS on by default ─────────────────────────────────────
-# Screen Stream secures your laptop on the LAN out of the box. A PIN is required
-# and traffic is encrypted (https/wss). The PIN is generated once and shown in
-# the banner below — read it off the laptop and enter it on the tablet.
-CONFIG_DIR="$HOME/.config/screen-stream"
-PIN_FILE="$CONFIG_DIR/pin"
-mkdir -p "$CONFIG_DIR"
-
-# If the user passed `--pin <value>`, persist it (so `screenshare --pin 1234`
-# changes the PIN permanently).
-_prev=""
-for _arg in "$@"; do
-  if [ "$_prev" = "--pin" ]; then
-    printf '%s' "$_arg" > "$PIN_FILE"; chmod 600 "$PIN_FILE"
-  fi
-  _prev="$_arg"
-done
-
-# Generate a random 4-digit PIN on first run.
-if [ ! -s "$PIN_FILE" ]; then
-  NEWPIN="$(shuf -i 1000-9999 -n 1 2>/dev/null || awk 'BEGIN{srand();printf "%04d", int(1000+rand()*9000)}')"
-  printf '%s' "$NEWPIN" > "$PIN_FILE"
-  chmod 600 "$PIN_FILE"
+# Screen Stream secures your laptop on the LAN out of the box. A FRESH random
+# alphanumeric PIN is generated on EVERY launch — it is passed to the server via
+# the environment, never written to disk, and never committed. It is printed in
+# the banner below; read it off the laptop and enter it on the tablet.
+# Pass `--pin <value>` to use a fixed PIN instead, or `--no-pin` to disable auth.
+if ! printf '%s\n' "$@" | grep -qx -- '--pin'; then
+  # Generated in a subshell with errexit/pipefail off — `tr | head` makes tr
+  # exit on SIGPIPE, which would otherwise abort this script.
+  GEN_PIN="$(set +o pipefail 2>/dev/null; LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom 2>/dev/null | head -c 6)"
+  [ -n "$GEN_PIN" ] || GEN_PIN="$(set +o pipefail 2>/dev/null; date +%s%N | md5sum | head -c 6)"   # fallback
+  export SCREENSHARE_PIN="$GEN_PIN"
 fi
-PIN="$(cat "$PIN_FILE")"
 
 # ── 8. Launch ────────────────────────────────────────────────────────────────
 # Defaults come first; any user-supplied flags ("$@") come after and win
 # (server.py parses left-to-right, last value wins) — so `--no-tls` / `--no-pin`
 # remain working escape hatches for local debugging.
-exec "$PYTHON" server.py --pin "$PIN" --tls "$@"
+export PYTHONPATH="$SCRIPT_DIR/src${PYTHONPATH:+:$PYTHONPATH}"
+exec "$PYTHON" -m screenshare --tls "$@"
