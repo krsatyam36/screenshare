@@ -5,7 +5,7 @@
 set -euo pipefail
 
 PACKAGE="screen-share-tab"
-VERSION="${1:-1.1.0}"
+VERSION="${1:-2.0.0}"
 ARCH="amd64"
 DEB="${PACKAGE}_${VERSION}_${ARCH}.deb"
 
@@ -28,9 +28,11 @@ mkdir -p "$STAGE/opt/screen-share-tab"
 mkdir -p "$STAGE/usr/local/bin"
 
 # ── Copy app files ────────────────────────────────────────────────────────────
-for f in server.py index.html start.sh install-service.sh; do
+for f in start.sh install-service.sh; do
     cp "$REPO/$f" "$STAGE/opt/screen-share-tab/"
 done
+# The Python package (src/screenshare/) including the web/ assets
+cp -r "$REPO/src" "$STAGE/opt/screen-share-tab/"
 chmod +x "$STAGE/opt/screen-share-tab/start.sh"
 chmod +x "$STAGE/opt/screen-share-tab/install-service.sh"
 

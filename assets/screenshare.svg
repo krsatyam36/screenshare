@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#4f46e5"/>
+    </linearGradient>
+    <linearGradient id="scr" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e0ecff"/>
+      <stop offset="1" stop-color="#bcd3ff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- rounded app background -->
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#bg)"/>
+
+  <!-- laptop (the source) -->
+  <g>
+    <rect x="96" y="150" width="210" height="140" rx="14" fill="url(#scr)"/>
+    <rect x="96" y="150" width="210" height="140" rx="14" fill="none" stroke="#1e3a8a" stroke-width="6" opacity="0.25"/>
+    <!-- mirrored play glyph on the laptop screen -->
+    <path d="M182 188 L182 252 L236 220 Z" fill="#2563eb"/>
+    <!-- laptop base -->
+    <path d="M70 300 H332 L350 332 H52 Z" fill="#dbe7ff"/>
+  </g>
+
+  <!-- tablet (the destination) -->
+  <g>
+    <rect x="300" y="200" width="132" height="186" rx="20" fill="#0f172a"/>
+    <rect x="314" y="214" width="104" height="148" rx="8" fill="url(#scr)"/>
+    <!-- same play glyph, mirrored stream -->
+    <path d="M350 258 L350 318 L398 288 Z" fill="#4f46e5"/>
+    <circle cx="366" cy="374" r="5" fill="#475569"/>
+  </g>
+
+  <!-- broadcast arcs from laptop to tablet -->
+  <g fill="none" stroke="#a5c4ff" stroke-width="10" stroke-linecap="round" opacity="0.9">
+    <path d="M324 132 a44 44 0 0 1 44 44"/>
+    <path d="M312 110 a70 70 0 0 1 70 70"/>
+  </g>
+  <circle cx="318" cy="178" r="9" fill="#a5c4ff"/>
+</svg>

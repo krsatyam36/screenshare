@@ -1,233 +1,277 @@
+<div align="center">
+
 # 🖥️ Screen Stream
 
-**Turn your tablet or phone into a high-performance second monitor for your Linux laptop.**
+**v2.0.0** — *Turn a tablet or phone into a full, secure remote desktop for your Linux laptop: live screen + audio, keyboard & touchpad control, an app launcher, file transfer and a web terminal — over your LAN, with no app to install on the client.*
 
-Stream your desktop and external monitors directly to any web browser on your local network. No app installation required on the client side—just open a URL or scan a QR code.
+[![Version](https://img.shields.io/badge/version-2.0.0-blue?style=flat)](https://github.com/krsatyam36/screenshare)
+[![Platform](https://img.shields.io/badge/platform-Linux-lightgrey?style=flat&logo=linux&logoColor=white)](https://kernel.org)
+[![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=flat&logo=python&logoColor=white)](https://python.org)
+[![ffmpeg](https://img.shields.io/badge/ffmpeg-x11grab-007808?style=flat&logo=ffmpeg&logoColor=white)](https://ffmpeg.org)
+[![Secure](https://img.shields.io/badge/secure-PIN%20%2B%20TLS-success?style=flat&logo=letsencrypt&logoColor=white)](#-security-always-on)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-![Version](https://img.shields.io/badge/version-1.1.0-blue)
-![Status](https://img.shields.io/badge/status-active-success)
-![Platform](https://img.shields.io/badge/platform-linux-lightgrey)
-![License](https://img.shields.io/badge/license-MIT-blue)
+**Leave the laptop at home. Run it entirely from the roof.**
+
+</div>
 
 ---
 
-## ✨ Features
+## Table of Contents
 
-**Full remote control (new in v1.1.0):**
+- [Overview](#overview)
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Install & Run](#install--run)
+  - [1. Clone](#1-clone)
+  - [2. Install the `screenshare` command](#2-install-the-screenshare-command)
+  - [3. Run it](#3-run-it)
+  - [4. Install the desktop app (optional)](#4-install-the-desktop-app-optional)
+  - [5. Connect from the tablet](#5-connect-from-the-tablet)
+- [🔒 Security (always on)](#-security-always-on)
+- [Controls](#controls)
+- [How It Works](#how-it-works)
+- [Project Structure](#project-structure)
+- [Packaging](#packaging)
+- [Troubleshooting](#troubleshooting)
+- [Author & License](#author--license)
 
-- ⌨️ **Reliable Mobile Typing:** Robust soft-keyboard capture (input/composition events) — works with Android keyboards, swipe-typing, and autocorrect, not just hardware keys.
-- 🎮 **Interactive Remote Control:** Use your tablet's touch screen to move the mouse, click, scroll, and type on your laptop.
-- 🖱️ **Touchpad Mode:** Relative pointer mode — drag to move the cursor like a laptop trackpad for precise control, alongside the default tap-to-position mode.
-- 🔊 **Audio Forwarding:** Stream your laptop's sound to the tablet (AAC muxed into the video — no extra setup on the client).
-- 🚀 **App Launcher & System Controls:** Browse installed apps and launch them; adjust volume, mute, media keys, lock, or suspend — all from the tablet.
-- 📁 **File Transfer:** Browse your home folder, download files to the tablet, and upload from it.
-- `>_` **Web Terminal:** A full `xterm.js` terminal in the browser, backed by a real PTY on the laptop.
-- 🔒 **Secure by Default:** Every launch requires a PIN and is encrypted over self-signed TLS (`https`/`wss`) — one secured front door to the whole app.
+---
+
+## Overview
+
+Screen Stream captures your X11 display with `ffmpeg` (hardware-accelerated via **NVENC**/**VAAPI** when available), muxes H.264 video + AAC audio into an MPEG-TS stream, and delivers it over a WebSocket to any modern browser, where `mpegts.js` plays it with sub-500 ms latency. A small HTTP API turns your touches into real mouse/keyboard events (`xdotool`), and adds an app launcher, system controls, a `$HOME`-jailed file browser and a PTY-backed web terminal.
+
+Everything is **secured by default**: a per-launch PIN guards the whole app and traffic is encrypted over TLS.
+
+---
+
+## Features
+
+**Full remote control:**
+
+- ⌨️ **Reliable mobile typing** — soft-keyboard capture via `input`/composition events; works with Android keyboards, swipe-typing and autocorrect.
+- 🎮 **Mouse & touch control** — tap to click, hold for right-click, drag to select.
+- 🖱️ **Touchpad mode** — relative pointer motion like a laptop trackpad, for precision.
+- 🔍 **Pinch-zoom & pan everywhere** — pinch to zoom in any mode; drag with two fingers to pan around the zoomed frame.
+- 🖲️ **Universal two-finger scroll** — two fingers scroll like a mouse wheel (on the stream and in the terminal).
+- 🔊 **Audio forwarding** — laptop sound streamed to the tablet (AAC muxed into the video).
+- 🚀 **App launcher & system controls** — real app icons, tap to launch; volume/mute, media keys, lock, suspend.
+- 📁 **File transfer** — browse `$HOME`, download to the tablet, upload from it.
+- `>_` **Web terminal** — a real PTY behind `xterm.js`, with live resize and touch scroll.
 
 **Streaming core:**
 
-- 🚀 **Low Latency:** Optimized pipeline using `ffmpeg` and `mpegts.js` for sub-500ms latency.
-- ⚡ **Hardware Accelerated:** Automatically detects and uses **NVENC** (NVIDIA) or **VAAPI** (AMD/Intel) for ultra-efficient encoding.
-- 📱 **Multi-Monitor Support:** Stream your laptop screen, external monitor, or both side-by-side.
-- 📋 **Clipboard Sync:** Effortlessly share text between your tablet and laptop.
-- 📡 **Zero Configuration:** mDNS/Zeroconf support (`https://screen-stream.local:8766`) and terminal QR codes for instant access.
-- 🔍 **Smart Zoom & Pan:** Pinch-to-zoom and swipe gestures optimized for mobile browsers.
-- 🔴 **Cursor Highlighting:** Real-time visual feedback of your laptop's cursor position on the tablet.
-- 🔋 **At-a-glance status:** Live RTT, laptop battery, and auto-quality that adapts the bitrate to your network.
+- ⚡ **Hardware-accelerated** H.264 (NVENC / VAAPI) with automatic detection.
+- 📱 **Multi-monitor** — laptop, external, or both side-by-side.
+- 📋 **Clipboard sync** between laptop and tablet.
+- 📡 **Zero-config discovery** — mDNS (`screen-stream.local`) + terminal QR code.
+- 🔋 **Live status** — RTT, laptop battery, and auto-quality that adapts bitrate to the network.
+
+**Secure by default:** PIN login + self-signed TLS (`https`/`wss`) — one front door to everything.
 
 ---
 
-## 🛠️ How It Works
-
-```mermaid
-graph LR
-    A[X11 Display] --> B[ffmpeg x11grab]
-    B --> C[H.264 MPEG-TS]
-    C --> D[WebSocket Server]
-    D --> E[Tablet Browser]
-    E --> F[mpegts.js Player]
-    E -- Remote Input --> G[HTTP API]
-    G --> H[xdotool/xclip]
-    H --> A
-```
-
----
-
-## 🚀 Quick Start
-
-### 1. Prerequisites
-Ensure you have `ffmpeg` and `python3` installed. For interactive features (remote control/clipboard), install `xdotool` and `xclip`.
+## Prerequisites
 
 ```bash
 sudo apt update
 sudo apt install ffmpeg xdotool xclip python3-venv
 ```
 
-**Optional extras** (each unlocks a feature; the UI hides what isn't installed):
+Optional extras (each unlocks a feature; the UI hides what isn't present):
 
-```bash
-# App launcher + system controls (most desktops already have these)
-sudo apt install libglib2.0-bin            # gtk-launch / gapplication
-# Volume/mute control needs wpctl (PipeWire) — usually preinstalled on modern distros
-# Lock/suspend uses loginctl/systemctl (systemd) — preinstalled
-# Self-signed TLS needs openssl                — usually preinstalled
-```
+| Tool | Enables |
+|---|---|
+| `libglib2.0-bin` (`gtk-launch`) | App launcher |
+| `wpctl` (PipeWire) / PulseAudio | Audio forwarding, volume/mute |
+| `loginctl` / `systemctl` (systemd) | Lock / suspend |
+| `openssl` | Self-signed TLS (usually preinstalled) |
 
-Audio forwarding works out of the box on **PipeWire** (with `wpctl`) or **PulseAudio**. The web terminal and file transfer need no extra packages. `xterm.js` is fetched automatically by `start.sh` on first run.
+`mpegts.js` and `xterm.js` are fetched automatically on first run (needs internet once).
 
-### 2. Install the `screenshare` command
-Clone the repo, then put the launcher on your `PATH` so you can start it from any terminal. Pick one:
+---
+
+## Install & Run
+
+### 1. Clone
 
 ```bash
 git clone https://github.com/krsatyam36/screenshare.git
 cd screenshare
+```
 
+### 2. Install the `screenshare` command
+
+Put the launcher on your `PATH` so you can start it from any terminal — pick one:
+
+```bash
 # Option A — system-wide (needs sudo)
 sudo ln -sf "$(pwd)/screenshare" /usr/local/bin/screenshare
 
-# Option B — no sudo (per-user; make sure ~/.local/bin is on your PATH)
+# Option B — no sudo (per-user; ensure ~/.local/bin is on your PATH)
 mkdir -p ~/.local/bin && ln -sf "$(pwd)/screenshare" ~/.local/bin/screenshare
 ```
 
-> Prefer not to install at all? Just run `./start.sh` from the repo — it's the same launcher.
+> Prefer not to install? Just run `./start.sh` from the repo — same launcher.
 
-### 3. Run it — one command, secured by default
+### 3. Run it
 
 ```bash
 screenshare
 ```
 
-That's it. The **first run** sets up the Python virtual environment and downloads `mpegts.js` (video player) + `xterm.js` (web terminal) — so the first launch needs internet, and the **web terminal won't appear until `xterm.js` has been fetched**. The server then starts with **a PIN and TLS already on** (see [Security](#-security-always-on)). Every feature — screen + audio, remote control, touchpad mode, app launcher, system controls, file transfer, and the web terminal — comes up together; there are no separate commands to run.
+First run sets up a virtualenv, downloads the browser assets, and starts the server **with a PIN and TLS already on**. Every feature comes up together — there are no per-feature commands.
 
-### 4. Connect
-Open the **`https://`** URL printed in your terminal (e.g. `https://192.168.1.10:8766`) on your tablet — or scan the QR code. Accept the self-signed-certificate warning once, then **enter the PIN shown in the terminal**. You're in.
+### 4. Install the desktop app (optional)
 
----
-
-## 📦 Installation Options
-
-### As a System Command
-Use one of the two `ln -sf` options from step 2 (system-wide with sudo, or per-user in `~/.local/bin`), then type `screenshare` from any directory. To run without installing, use `./start.sh` from the repo.
-
-### Debian/Ubuntu (.deb)
-Build a package from source (version comes from the argument):
 ```bash
-./packaging/build-deb.sh 1.1.0
-sudo apt install ./screen-share-tab_1.1.0_amd64.deb
+./install-app.sh        # adds "Screen Stream" to your app grid (./install-app.sh remove to undo)
 ```
-The package installs the same secure-by-default server and exposes the `screen-share-tab` command. *(The pre-built `.deb` distributed for v1.0.0 predates the v1.1.0 features — rebuild from source for the latest.)*
 
----
+Opening **Screen Stream** from your launcher runs the server in a terminal window that shows the URL, QR code and the one-time PIN.
 
-## ⚙️ Configuration
+### 5. Connect from the tablet
 
-The tool is configured to detect two screens by default. If your layout is different, you can customize the `SCREENS` and `SCREEN_BOUNDS` dictionaries in `server.py`:
-
-```python
-SCREENS = {
-    'laptop':   {'size': '1920x1080', 'offset': '0,1080'},
-    'external': {'size': '1920x1080', 'offset': '0,0'},
-}
-```
-*Tip: Run `xrandr` in your terminal to see your exact screen dimensions and offsets.*
-
----
-
-## ⌨️ Browser Shortcuts
-
-| Key | Action |
-|:---:|---|
-| `1` / `2` | Switch to Laptop / External monitor |
-| `B` | View both monitors side-by-side |
-| `F` | Toggle Fullscreen |
-| `←` / `→` | Swipe/Switch between screens |
-| `↑` / `↓` | Adjust FPS |
-| `L` / `M` / `H` | Quality: Low (600k), Medium (1.5M), High (3M) |
-| `C` | Toggle Cursor Highlight |
-| `R` | Toggle Remote Control mode |
-| `K` | Toggle on-screen Keyboard |
-
-The v1.1.0 controls are touch-first and live on the toolbar (a tablet rarely has a hardware keyboard):
-
-| Toolbar button | Action |
-|:---:|---|
-| 🎮 Control | Remote mouse/keyboard control |
-| 🖱 Pad | Touchpad (relative) pointer mode |
-| ⌨ KB | Show the on-screen keyboard bar |
-| 🔊 Audio | Forward laptop audio to the tablet |
-| ☰ Apps | App launcher + system controls (volume, lock, media…) |
-| 📁 Files | Browse / upload / download files |
-| `>_` Term | Open the web terminal |
-| 📶 Auto | Auto-adjust quality to the network |
-| 📋 Clip | Clipboard sync |
+Open the **`https://`** URL printed in the terminal (e.g. `https://192.168.1.10:8766`) — or scan the QR code. Accept the self-signed-certificate warning once, then **enter the PIN shown in the terminal**.
 
 ---
 
 ## 🔒 Security (always on)
 
-Because Screen Stream gives full remote control of your laptop — keyboard, mouse, a web terminal, and file access — **it locks itself down by default**. There is one secured front door to *everything*:
+Screen Stream grants full control of your laptop — keyboard, mouse, a shell and file access — so it locks itself down by default. One secured front door covers **everything** (web UI and both WebSockets):
 
-- **PIN login** — a login page guards the whole app. A signed session cookie then authorizes both the web UI (HTTP) and the video/terminal sockets (WebSocket).
-- **TLS encryption** — all traffic is served over `https://` + `wss://` using a self-signed certificate generated on first run.
+- **PIN login** — a login page; a signed session cookie then authorizes HTTP and WebSocket.
+- **TLS encryption** — `https://` + `wss://` via a self-signed cert (with your LAN IP in its SAN) generated on first run.
 
 ### The PIN
 
-A random 4-digit PIN is generated the first time you run `screenshare` and stored in `~/.config/screen-stream/pin`. It's printed in the startup banner every launch:
+A **fresh random alphanumeric PIN is generated on every launch** — held in memory, never written to disk, never committed — and printed in the banner:
 
 ```
-  Auth        →  PIN 2681   · enter this on the tablet
+  Auth        →  PIN <shown-here>   · enter this on the tablet
 ```
 
-Read it off the laptop and type it on the tablet. To change it:
+Because it rotates each run, there's nothing to leak. To pin a fixed value for a run:
 
 ```bash
-screenshare --pin 1234     # sets and remembers a new PIN
+screenshare --pin <your-pin>
 ```
 
-### Connecting (self-signed cert)
+### Accepting the certificate
 
-The first time you open `https://<ip>:8766`, your browser warns about the self-signed certificate — accept it once. **You may also need to accept it once for the WebSocket** at `https://<ip>:8765` (open that URL directly and approve) so the video stream can connect.
+Self-signed certs trigger a one-time browser warning on a LAN IP. Open `https://<ip>:8766`, accept it, and — if the video doesn't connect — open `https://<ip>:8765` once and accept it there too (that's the WebSocket port).
 
-### Ports & firewall
+### Ports
 
 | Port | Purpose |
 |---|---|
 | **8765** | WebSocket — video/audio stream + terminal |
-| **8766** | HTTPS — web interface, remote input, files |
+| **8766** | HTTPS — web UI, remote input, files |
 
 ```bash
-sudo ufw allow 8765/tcp
-sudo ufw allow 8766/tcp
+sudo ufw allow 8765/tcp && sudo ufw allow 8766/tcp
 ```
 
-### Local debugging escape hatch
-
-If you're testing on the laptop itself and want to skip security, the flags still exist:
+### Local-debug escape hatch
 
 ```bash
-screenshare --no-tls --no-pin     # plain http://, no login (trusted LAN only)
-screenshare --tls --cert /path/cert.pem --key /path/key.pem   # bring your own cert
+screenshare --no-tls --no-pin      # plain http://, no login (trusted LAN only)
+screenshare --tls --cert cert.pem --key key.pem   # bring your own cert
 ```
 
 > Anyone with the PIN effectively has a shell on your laptop — keep it to yourself.
 
 ---
 
-## 🤝 Contributing
+## Controls
 
-Contributions are welcome! Feel free to open an issue or submit a pull request.
+Toolbar buttons (touch-first):
+
+| Button | Action |
+|---|---|
+| 🎮 Control | Remote mouse/keyboard control |
+| 🖱 Pad | Touchpad (relative) pointer mode |
+| ⌨ KB | On-screen keyboard bar |
+| 🔊 Audio | Forward laptop audio |
+| ☰ Apps | App launcher + system controls |
+| 📁 Files | Browse / upload / download |
+| `>_` Term | Web terminal |
+| 📶 Auto | Adaptive quality |
+| 📋 Clip | Clipboard sync |
+
+Gestures: **pinch** to zoom (any mode) · **two-finger drag** to pan when zoomed · **two-finger up/down** to scroll like a wheel.
+
+Keyboard shortcuts: `1`/`2` laptop/external · `B` both · `F` fullscreen · `←`/`→` switch · `↑`/`↓` FPS · `L`/`M`/`H` quality · `C` cursor · `R` control · `K` keyboard.
 
 ---
 
-## 👤 Author
+## How It Works
 
-**Kumar Satyam**
-- 📧 Email: [kumarsatyam3135@gmail.com](mailto:kumarsatyam3135@gmail.com)
-- 🐙 GitHub: [@krsatyam36](https://github.com/krsatyam36)
+```mermaid
+graph LR
+    A[X11 Display] --> B[ffmpeg x11grab + NVENC/VAAPI]
+    P[PipeWire monitor] --> B
+    B --> C[H.264 + AAC MPEG-TS]
+    C --> D[WebSocket wss://:8765]
+    D --> E[Tablet browser · mpegts.js]
+    E -- touch/keys --> F[HTTPS API :8766]
+    F --> G[xdotool / xclip / wpctl / gtk-launch / PTY]
+    G --> A
+```
 
 ---
 
-## 📄 License
+## Project Structure
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+```
+screenshare/
+├── screenshare              # launcher wrapper → start.sh
+├── start.sh                 # sets up venv + assets, generates PIN, launches the server
+├── install-app.sh           # installs the desktop app + icon
+├── assets/screenshare.svg   # app logo
+├── packaging/               # Debian .deb build
+└── src/screenshare/         # the Python package
+    ├── __main__.py          # python -m screenshare
+    ├── server.py            # entry: wires modules, banner, runs HTTP + WS
+    ├── config.py            # constants, paths, logging
+    ├── security.py          # PIN auth, TLS, arg parsing
+    ├── media.py             # encoders, audio capture, ffmpeg, streaming
+    ├── host.py              # net/env, input, clipboard, apps, icons, battery
+    ├── files.py             # $HOME-jailed file browser
+    ├── terminal.py          # PTY web terminal
+    ├── httpapp.py           # HTTP server + request handler
+    ├── wsapp.py             # WebSocket routing + mDNS
+    └── web/                 # index.html + mpegts.js + xterm.js (client)
+```
 
+---
+
+## Packaging
+
+Build a Debian package from source:
+
+```bash
+./packaging/build-deb.sh 2.0.0
+sudo apt install ./screen-share-tab_2.0.0_amd64.deb
+```
+
+It installs the same secure-by-default server and exposes the `screen-share-tab` command.
+
+---
+
+## Troubleshooting
+
+- **Browser says "not secure":** expected for a self-signed cert on a LAN IP — accept the warning once (see [Security](#-security-always-on)). The video lives on a second port (`:8765`); accept the cert there too if it won't connect.
+- **Typing/control greyed out:** install `xdotool`. Clipboard needs `xclip`.
+- **No audio:** needs PipeWire (`wpctl`) or PulseAudio; the 🔊 button is dimmed otherwise.
+- **No web terminal:** `xterm.js` failed to download on first run — re-run `screenshare` with internet.
+- **Wayland:** capture/control use X11; run under Xwayland for full functionality. Native Wayland is on the roadmap.
+
+---
+
+## Author & License
+
+**Kumar Satyam** — [@krsatyam36](https://github.com/krsatyam36)
+
+Licensed under the MIT License — see [LICENSE](LICENSE).

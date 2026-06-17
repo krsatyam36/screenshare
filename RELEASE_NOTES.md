@@ -1,3 +1,22 @@
+# Release v2.0.0: Product-Grade Refactor & Polish
+
+This release hardens Screen Stream into a real product: a clean modular codebase, secure-by-default access, richer touch interaction, and a one-tap desktop app.
+
+## ✨ What's New
+
+- **Secure by default, rotating PIN:** every launch generates a fresh **alphanumeric** PIN (held in memory — never written to disk or committed) and serves over self-signed TLS whose certificate now includes the LAN IP/hostnames in its SAN. `--no-tls`/`--no-pin` remain local-debug escape hatches.
+- **One command + desktop app:** run `screenshare` from anywhere, or install a launcher (`./install-app.sh`) with a custom logo that opens the server in a terminal.
+- **Real app icons:** the launcher shows each app's actual icon (freedesktop lookup), with a letter-tile fallback.
+- **Gestures, reworked:** pinch-to-zoom now works in *every* mode; two-finger drag pans the zoomed frame; two-finger up/down scrolls like a mouse wheel — on the stream and in the web terminal.
+- **Modular codebase:** the monolithic `server.py` is split into a `src/screenshare/` package (`config`, `security`, `media`, `host`, `files`, `terminal`, `httpapp`, `wsapp`, `server`). Behaviour is unchanged and verified end-to-end.
+
+## 🔧 Notes
+
+- Code now lives under `src/`; run via `screenshare` / `./start.sh` (which launches `python -m screenshare`).
+- No personal/third-party identifiers in the codebase; secrets are git-ignored.
+
+---
+
 # Release v1.1.0: Full Remote-Desktop Upgrade
 
 This release turns Screen Stream from a "second monitor with basic control" into a tool you can use to run your laptop entirely from a tablet across the LAN — no physical access needed.

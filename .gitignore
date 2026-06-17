@@ -22,3 +22,11 @@ xterm.js
 xterm.css
 xterm-addon-fit.js
 *.deb
+
+# Secrets — never commit
+*.pem
+*.key
+*.crt
+pin
+*.pin
+src/screenshare/web/screenshare.svg

@@ -2,9 +2,10 @@
 # On full purge (apt purge), remove generated files not tracked by dpkg.
 if [ "$1" = "purge" ]; then
     rm -rf /opt/screen-share-tab/.venv
-    rm -f  /opt/screen-share-tab/mpegts.min.js
-    rm -f  /opt/screen-share-tab/xterm.js \
-           /opt/screen-share-tab/xterm.css \
-           /opt/screen-share-tab/xterm-addon-fit.js
+    rm -f  /opt/screen-share-tab/src/screenshare/web/mpegts.min.js \
+           /opt/screen-share-tab/src/screenshare/web/xterm.js \
+           /opt/screen-share-tab/src/screenshare/web/xterm.css \
+           /opt/screen-share-tab/src/screenshare/web/xterm-addon-fit.js
+    find /opt/screen-share-tab -name '__pycache__' -type d -prune -exec rm -rf {} + 2>/dev/null || true
 fi
 exit 0

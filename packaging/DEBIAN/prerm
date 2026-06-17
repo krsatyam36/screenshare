@@ -1,4 +1,4 @@
 #!/bin/bash
 # Runs before package files are removed. Stop any running instance.
-pkill -f "/opt/screen-share-tab/server.py" 2>/dev/null || true
+pkill -f "screen-share-tab.*-m screenshare\|/opt/screen-share-tab/start.sh" 2>/dev/null || true
 exit 0
