@@ -119,7 +119,7 @@ LOGIN_PAGE = """<!doctype html><html><head><meta charset=utf-8>
 </style></head><body>
 <div class=box>
  <h1>🖥️ Screen Stream</h1><p>Enter the PIN to continue</p>
- <input id=pin type=tel inputmode=numeric autocomplete=off autofocus placeholder="••••">
+ <input id=pin type=text inputmode=text autocomplete=off autocorrect=off autocapitalize=none spellcheck=false autofocus placeholder="PIN">
  <button onclick=go()>Unlock</button>
  <div class=err id=err></div>
 </div>
