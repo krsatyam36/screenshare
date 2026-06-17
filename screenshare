@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-exec /home/kumarsatyam/screen-stream/start.sh "$@"
+exec /home/kumarsatyam/Projects/screenshare/start.sh "$@"

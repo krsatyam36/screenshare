@@ -75,6 +75,26 @@ if [ ! -f "$MPEGTS_JS" ]; then
 fi
 echo -e "  ${GRN}✓${NC} mpegts.js ready"
 
+# ── 3b. xterm.js (optional — enables the web terminal) ───────────────────────
+download_asset() {
+  # $1 = local file, $2 = url
+  local file="$SCRIPT_DIR/$1"
+  [ -f "$file" ] && return 0
+  if [ -w "$SCRIPT_DIR" ]; then
+    if command -v curl &>/dev/null;   then curl -sL "$2" -o "$file"
+    elif command -v wget &>/dev/null; then wget -q  "$2" -O "$file"
+    fi
+  fi
+}
+download_asset "xterm.js"            "https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.js"
+download_asset "xterm.css"           "https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css"
+download_asset "xterm-addon-fit.js"  "https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.js"
+if [ -f "$SCRIPT_DIR/xterm.js" ]; then
+  echo -e "  ${GRN}✓${NC} xterm.js ready (web terminal available)"
+else
+  echo -e "  ${YLW}!${NC} xterm.js not downloaded — web terminal disabled"
+fi
+
 # ── 4. xdotool (optional — enables cursor highlight feature) ─────────────────
 if ! command -v xdotool &>/dev/null; then
   echo -e "  ${YLW}!${NC} xdotool not found — cursor highlight disabled"
@@ -124,5 +144,34 @@ while lsof -ti tcp:8765 &>/dev/null || lsof -ti tcp:8766 &>/dev/null; do
   _waited=$((_waited + 1))
 done
 
-# ── 7. Launch ────────────────────────────────────────────────────────────────
-exec "$PYTHON" server.py
+# ── 7. Security: PIN + TLS on by default ─────────────────────────────────────
+# Screen Stream secures your laptop on the LAN out of the box. A PIN is required
+# and traffic is encrypted (https/wss). The PIN is generated once and shown in
+# the banner below — read it off the laptop and enter it on the tablet.
+CONFIG_DIR="$HOME/.config/screen-stream"
+PIN_FILE="$CONFIG_DIR/pin"
+mkdir -p "$CONFIG_DIR"
+
+# If the user passed `--pin <value>`, persist it (so `screenshare --pin 1234`
+# changes the PIN permanently).
+_prev=""
+for _arg in "$@"; do
+  if [ "$_prev" = "--pin" ]; then
+    printf '%s' "$_arg" > "$PIN_FILE"; chmod 600 "$PIN_FILE"
+  fi
+  _prev="$_arg"
+done
+
+# Generate a random 4-digit PIN on first run.
+if [ ! -s "$PIN_FILE" ]; then
+  NEWPIN="$(shuf -i 1000-9999 -n 1 2>/dev/null || awk 'BEGIN{srand();printf "%04d", int(1000+rand()*9000)}')"
+  printf '%s' "$NEWPIN" > "$PIN_FILE"
+  chmod 600 "$PIN_FILE"
+fi
+PIN="$(cat "$PIN_FILE")"
+
+# ── 8. Launch ────────────────────────────────────────────────────────────────
+# Defaults come first; any user-supplied flags ("$@") come after and win
+# (server.py parses left-to-right, last value wins) — so `--no-tls` / `--no-pin`
+# remain working escape hatches for local debugging.
+exec "$PYTHON" server.py --pin "$PIN" --tls "$@"
