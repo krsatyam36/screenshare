@@ -140,13 +140,9 @@ screenshare
 
 First run sets up a virtualenv, downloads the browser assets, and starts the server **with a PIN and TLS already on**. Every feature comes up together — there are no per-feature commands.
 
-### 4. Install the desktop app (optional)
+### 4. Desktop app
 
-```bash
-./install-app.sh        # adds "Screen Stream" to your app grid (./install-app.sh remove to undo)
-```
-
-Opening **Screen Stream** from your launcher runs the server in a terminal window that shows the URL, QR code and the one-time PIN.
+The desktop **control-panel** app is installed by `./install.sh` (top of this section). Opening **Screen Stream** from your launcher opens the app window (Start/Stop, QR, PIN, History) — **not** a terminal.
 
 ### 5. Connect from the tablet
 

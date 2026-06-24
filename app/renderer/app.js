@@ -1,3 +1,5 @@
+(function () {
+"use strict";
 const $ = (s) => document.querySelector(s);
 const api = window.api;
 
@@ -180,4 +182,5 @@ $('#check-updates').addEventListener('click', async () => {
   $('#db-path').textContent = 'History stored in ~/.config/screen-stream/history.db';
   await loadSettings();
   renderState(await api.serverInfo());
+})();
 })();

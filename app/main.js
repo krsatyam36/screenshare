@@ -8,6 +8,11 @@ const { ServerController } = require('./lib/serverctl');
 const history = require('./lib/history');
 const settings = require('./lib/settings');
 
+// Safety net: never let a stray error throw the "A JavaScript error occurred in
+// the main process" dialog (which would also kill IPC and freeze the UI).
+process.on('uncaughtException', (err) => console.error('[main uncaught]', (err && err.stack) || err));
+process.on('unhandledRejection', (err) => console.error('[main unhandledRejection]', (err && err.stack) || err));
+
 const ICON = path.join(__dirname, 'build', 'icon.png');
 let win = null;
 let tray = null;
@@ -42,11 +47,21 @@ function createWindow() {
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
+  // Surface renderer/preload problems in the main process log.
+  win.webContents.on('console-message', (_e, level, message, line, src) => {
+    console.log(`[renderer:${line}] ${message}`);
+  });
+  win.webContents.on('preload-error', (_e, p, err) => console.log('[preload-error]', p, err && err.message));
+  win.webContents.on('did-fail-load', (_e, code, desc) => console.log('[did-fail-load]', code, desc));
+
   win.on('close', (e) => {
     if (quitting || !server.isRunning()) return;   // normal close
     e.preventDefault();
     win.webContents.send('confirm-close');          // renderer shows the modal
   });
+  // Critical: drop the reference once destroyed, so showWindow() never touches
+  // a dead BrowserWindow (which throws "Object has been destroyed").
+  win.on('closed', () => { win = null; });
 }
 
 // ── Tray ───────────────────────────────────────────────────────────────────
@@ -76,7 +91,10 @@ function refreshTray() {
   ]));
 }
 
-function showWindow() { if (!win) createWindow(); else { win.show(); win.focus(); } }
+function showWindow() {
+  if (!win || win.isDestroyed()) { createWindow(); return; }
+  win.show(); win.focus();
+}
 
 // ── Server lifecycle wiring ──────────────────────────────────────────────────
 function doStart() {
@@ -88,19 +106,19 @@ server.on('log', ({ line, level }) => {
   sessionLog.push(`${line}`);
   if (sessionLog.length > 5000) sessionLog.shift();
   if (level === 'error') sessionError = true;
-  if (win) win.webContents.send('log', { line, level, ts: Date.now() });
+  if (win && !win.isDestroyed()) win.webContents.send('log', { line, level, ts: Date.now() });
 });
-server.on('url', (url) => { if (win) win.webContents.send('url', url); });
+server.on('url', (url) => { if (win && !win.isDestroyed()) win.webContents.send('url', url); });
 server.on('status', (st) => {
   if (sessionId) history.syncConnections(sessionId, st.clients);
-  if (win) win.webContents.send('status', st);
+  if (win && !win.isDestroyed()) win.webContents.send('status', st);
 });
 server.on('state', (info) => {
   if (info.running && sessionId === null) {
     sessionLog = []; sessionError = false;
     sessionId = history.startSession(info.tls);
   }
-  if (win) win.webContents.send('state', info);
+  if (win && !win.isDestroyed()) win.webContents.send('state', info);
   refreshTray();
 });
 server.on('exit', () => {
@@ -133,7 +151,7 @@ ipcMain.handle('updates:check', () => checkUpdates());
 
 ipcMain.on('app:close-choice', (_e, choice) => {
   if (choice === 'quit') { quitting = true; server.stop(); setTimeout(() => app.quit(), 300); }
-  else if (win) win.hide();   // 'tray'
+  else if (win && !win.isDestroyed()) win.hide();   // 'tray'
 });
 
 // ── Autostart (~/.config/autostart) ──────────────────────────────────────────

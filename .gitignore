@@ -125,3 +125,4 @@ BUILD PLAN (derived):
     installs on clone (venv, assets, build, menu entry).
   • "Check for updates" via GitHub releases API.
 claude_questions.txt
+app.js

@@ -22,7 +22,9 @@ done
 # ── remove ────────────────────────────────────────────────────────────────────
 if [ "${1:-}" = "remove" ]; then
   step "Removing Screen Stream"
-  rm -f "$HOME/.local/bin/screenshare" "$HOME/.local/share/applications/screenshare.desktop" \
+  rm -f "$HOME/.local/bin/screenshare" "$HOME/.local/bin/ScreenStream.AppImage" \
+        "$HOME/.local/share/applications/screenshare.desktop" \
+        "$HOME/.local/share/applications/screen-stream.desktop" \
         "$HOME/.local/share/icons/hicolor/scalable/apps/screenshare.svg"
   [ -w /usr/local/bin ] && rm -f /usr/local/bin/screenshare 2>/dev/null || true
   command -v update-desktop-database &>/dev/null && update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
@@ -83,23 +85,33 @@ if [ "$WANT_APP" = "1" ]; then
     ok "app dependencies installed"
     APPIMAGE=""
     if [ "$BUILD" = "1" ]; then
+      # Clear stale artifacts so an older build can never be picked up.
+      rm -f dist/*.AppImage dist/*.deb 2>/dev/null || true
       if ( cd app && npm run dist ); then
-        APPIMAGE="$(ls -1 dist/*.AppImage 2>/dev/null | head -1 || true)"
+        # Select the current artifactName (ScreenStream-*.AppImage, no space).
+        APPIMAGE="$(ls -1 dist/ScreenStream-*.AppImage 2>/dev/null | head -1 || true)"
+        [ -n "$APPIMAGE" ] || APPIMAGE="$(ls -1t dist/*.AppImage 2>/dev/null | head -1 || true)"
         ok "built: $(ls dist/*.AppImage dist/*.deb 2>/dev/null | xargs -n1 basename 2>/dev/null | tr '\n' ' ')"
       else
         warn "Electron build failed — falling back to dev-mode launcher"
       fi
     fi
-    # install icon + a .desktop that launches the GUI
+    # install icon + a .desktop that launches the GUI (never a terminal)
     ICON_DIR="$HOME/.local/share/icons/hicolor/scalable/apps"; mkdir -p "$ICON_DIR"
     cp -f assets/screenshare.svg "$ICON_DIR/screenshare.svg"
     APPS_DIR="$HOME/.local/share/applications"; mkdir -p "$APPS_DIR"
+    mkdir -p "$HOME/.local/bin"
     if [ -n "$APPIMAGE" ]; then
-      EXEC="$SCRIPT_DIR/$APPIMAGE"
+      # Copy to a stable, space-free path so the launcher survives moving/renaming the repo.
+      cp -f "$SCRIPT_DIR/$APPIMAGE" "$HOME/.local/bin/ScreenStream.AppImage"
+      chmod +x "$HOME/.local/bin/ScreenStream.AppImage"
+      EXEC="$HOME/.local/bin/ScreenStream.AppImage --no-sandbox"
     else
-      EXEC="bash -c 'cd \"$SCRIPT_DIR/app\" && npm start'"   # dev-mode launcher
+      # Dev-mode launcher: run the Electron GUI directly (no terminal, no npm PATH dependency).
+      EXEC="$SCRIPT_DIR/app/node_modules/.bin/electron $SCRIPT_DIR/app --no-sandbox"
     fi
-    cat > "$APPS_DIR/screenshare.desktop" <<EOF
+    rm -f "$APPS_DIR/screenshare.desktop"   # drop any stale terminal-launcher id
+    cat > "$APPS_DIR/screen-stream.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Screen Stream
@@ -108,10 +120,11 @@ Exec=$EXEC
 Icon=screenshare
 Terminal=false
 Categories=Network;RemoteAccess;
+StartupWMClass=Screen Stream
 StartupNotify=true
 EOF
     command -v update-desktop-database &>/dev/null && update-desktop-database "$APPS_DIR" 2>/dev/null || true
-    ok "desktop app installed — find \"Screen Stream\" in your app grid"
+    ok "desktop app installed (opens the app window, not a terminal)"
   fi
 fi
 

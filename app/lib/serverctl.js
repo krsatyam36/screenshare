@@ -26,6 +26,7 @@ class ServerController extends EventEmitter {
     super();
     this.child = null;
     this.running = false;
+    this.starting = false;
     this.pin = null;
     this.url = null;
     this.tls = true;
@@ -40,30 +41,36 @@ class ServerController extends EventEmitter {
   }
 
   // opts: { tls: bool, fixedPin: string|null }
-  start(opts = {}) {
-    if (this.running) return;
+  // Async so the one-time venv setup (packaged) never blocks the UI thread.
+  async start(opts = {}) {
+    if (this.running || this.starting) return;
+    this.starting = true;
     this.tls = opts.tls !== false;
     this.pin = opts.fixedPin && opts.fixedPin.length ? opts.fixedPin : genPin();
     this.url = null;
 
     const base = resourceBase();
     const args = ['--pin', this.pin, this.tls ? '--tls' : '--no-tls'];
-
-    let cmd, cmdArgs, cwd, env = { ...process.env };
-    if (app.isPackaged) {
-      // Packaged: run the bundled package with a user-writable venv.
-      const py = this._ensureVenvSync();
-      cmd = py;
-      cmdArgs = ['-m', 'screenshare', ...args];
-      cwd = base;
-      env.PYTHONPATH = path.join(base, 'src');
-    } else {
-      // Dev: reuse start.sh (handles venv + asset download).
-      cmd = 'bash';
-      cmdArgs = [path.join(base, 'start.sh'), ...args];
-      cwd = base;
+    try {
+      let cmd, cmdArgs;
+      const env = { ...process.env };
+      if (app.isPackaged) {
+        const py = await this._ensureVenv();      // async — keeps the UI alive
+        if (!py) return;                          // setup failed; logged already
+        cmd = py;
+        cmdArgs = ['-m', 'screenshare', ...args];
+        env.PYTHONPATH = path.join(base, 'src');
+      } else {
+        cmd = 'bash';                             // dev: start.sh handles venv/assets
+        cmdArgs = [path.join(base, 'start.sh'), ...args];
+      }
+      this._spawn(cmd, cmdArgs, base, env);
+    } finally {
+      this.starting = false;
     }
+  }
 
+  _spawn(cmd, cmdArgs, cwd, env) {
     this.emit('log', { line: `$ ${path.basename(cmd)} ${cmdArgs.join(' ')}`, level: 'cmd' });
     this.child = spawn(cmd, cmdArgs, { cwd, env });
     this.running = true;
@@ -135,20 +142,26 @@ class ServerController extends EventEmitter {
 
   _stopPoll() { if (this._poll) { clearInterval(this._poll); this._poll = null; } }
 
-  // Ensure a user-writable venv for the packaged app. Returns the python path.
-  _ensureVenvSync() {
+  // Ensure a user-writable venv for the packaged app — fully ASYNC (spawn, not
+  // execFileSync) so the main thread never freezes. Resolves to the python
+  // path, or null on failure.
+  _ensureVenv() {
     const dir = path.join(app.getPath('userData'), 'venv');
     const py = path.join(dir, 'bin', 'python3');
-    if (fs.existsSync(py)) return py;
-    const { execFileSync } = require('child_process');
-    try {
-      this.emit('log', { line: 'First run: setting up Python environment…', level: 'info' });
-      execFileSync('python3', ['-m', 'venv', dir], { stdio: 'ignore' });
-      execFileSync(py, ['-m', 'pip', 'install', '--quiet', 'websockets', 'qrcode', 'zeroconf'], { stdio: 'ignore' });
-    } catch (e) {
-      this.emit('log', { line: `venv setup failed: ${e.message}`, level: 'error' });
-    }
-    return py;
+    if (fs.existsSync(py)) return Promise.resolve(py);
+
+    const run = (bin, a) => new Promise((res, rej) => {
+      const p = spawn(bin, a, { stdio: 'ignore' });
+      p.on('error', rej);
+      p.on('exit', (code) => (code === 0 ? res() : rej(new Error(`${path.basename(bin)} exited ${code}`))));
+    });
+
+    this.emit('log', { line: 'First run: setting up the Python environment (one-time, ~20s)…', level: 'info' });
+    this.emit('state', this.info());   // lets the UI show a "preparing" state
+    return run('python3', ['-m', 'venv', dir])
+      .then(() => { this.emit('log', { line: 'Installing dependencies…', level: 'info' }); return run(py, ['-m', 'pip', 'install', '--quiet', 'websockets', 'qrcode', 'zeroconf']); })
+      .then(() => { this.emit('log', { line: 'Python environment ready.', level: 'info' }); return py; })
+      .catch((e) => { this.emit('log', { line: `venv setup failed: ${e.message}`, level: 'error' }); return null; });
   }
 }
 

@@ -5,6 +5,7 @@
   "description": "Control panel for Screen Stream — start/stop the LAN remote-desktop server, show the QR/PIN, view history.",
   "author": "Kumar Satyam <kumarsatyam3135@gmail.com>",
   "license": "MIT",
+  "homepage": "https://github.com/krsatyam36/screenshare",
   "main": "main.js",
   "scripts": {
     "gen-icon": "node scripts/gen-icon.js",
@@ -25,6 +26,7 @@
   "build": {
     "appId": "com.krsatyam36.screenstream",
     "productName": "Screen Stream",
+    "artifactName": "ScreenStream-${version}.${ext}",
     "directories": { "output": "../dist", "buildResources": "build" },
     "files": ["main.js", "preload.js", "lib/**/*", "renderer/**/*", "build/icon.png"],
     "extraResources": [

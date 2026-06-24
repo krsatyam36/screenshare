@@ -1,0 +1,210 @@
+==============================================================================
+ SCREEN STREAM v2.0.0 — DEPLOYMENT GUIDE
+ From a fresh `git clone` to a working desktop app + `screenshare` command.
+==============================================================================
+
+This is everything a user needs to install Screen Stream on a Linux (Ubuntu/
+Debian) machine. One script does it all: ./install.sh
+
+
+------------------------------------------------------------------------------
+0) WHAT YOU GET
+------------------------------------------------------------------------------
+After installing, there are TWO ways to run it — pick whichever you like:
+
+  • Desktop app  — open "Screen Stream" from your app grid (double-click).
+                   A control panel opens: a big START / STOP button, the QR
+                   code + PIN to connect a tablet, a live "who's connected"
+                   indicator, a log console, and a History tab.
+
+  • Terminal     — type `screenshare` from any directory.
+
+Either way, the server is SECURE BY DEFAULT: a fresh random PIN every launch
+and encrypted https/wss. You stream your laptop screen to a tablet's browser
+(no app needed on the tablet) and control the laptop from it.
+
+
+------------------------------------------------------------------------------
+1) PREREQUISITES  (install these first)
+------------------------------------------------------------------------------
+Required (the tool won't run without them):
+
+    sudo apt update
+    sudo apt install ffmpeg python3 python3-venv xdotool xclip
+
+To BUILD the desktop app you also need Node.js (v18 or newer) + npm:
+
+    # Ubuntu 24.04 ships a recent Node; if not, install from NodeSource:
+    sudo apt install nodejs npm
+    #   (or: curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt install -y nodejs)
+
+Optional extras (each unlocks a feature; the app hides what's missing):
+
+    libglib2.0-bin   -> the in-app launcher (gtk-launch)
+    wpctl/PipeWire   -> audio forwarding + volume/mute   (usually preinstalled)
+    loginctl/systemd -> lock / suspend                    (preinstalled)
+    openssl          -> the self-signed TLS cert          (preinstalled)
+
+You also need INTERNET on the first run (to download the browser player and
+the Electron toolchain). After that it works offline on your LAN.
+
+
+------------------------------------------------------------------------------
+2) INSTALL  (the one command)
+------------------------------------------------------------------------------
+    git clone https://github.com/krsatyam36/screenshare.git
+    cd screenshare
+    ./install.sh
+
+That's it. `install.sh` performs, in order:
+
+    1. Checks prerequisites (ffmpeg, python3).
+    2. Creates the Python virtual environment (.venv) and installs the server
+       deps (websockets, qrcode, zeroconf).
+    3. Downloads the browser assets (mpegts.js, xterm.js) into the package.
+    4. Installs the `screenshare` terminal command (symlink on your PATH).
+    5. Builds the desktop app with electron-builder -> AppImage + .deb, copies
+       the AppImage to ~/.local/bin/ScreenStream.AppImage, and adds the
+       "Screen Stream" entry + icon to your app menu.
+
+Flags:
+    ./install.sh --no-build   # skip the Electron build; install a dev-mode
+                              #   launcher that runs the GUI directly
+    ./install.sh --no-app     # CLI only (the `screenshare` command), no GUI
+    ./install.sh remove       # uninstall the command + desktop entry
+
+NOTE: the build step downloads Electron (~100 MB) and compiles a native module
+the first time — give it a couple of minutes. Subsequent runs are fast.
+
+
+------------------------------------------------------------------------------
+3) FIRST LAUNCH
+------------------------------------------------------------------------------
+Open "Screen Stream" from your app grid (or run `screenshare`).
+
+  • The window opens STOPPED — nothing streams until you press START.
+  • The very first time you press START, the app prepares a small Python
+    environment (~20 s, shown in the log as "setting up the Python
+    environment…"). This happens once; later starts are instant.
+  • After START you'll see the QR code, the PIN, and the https URL.
+
+
+------------------------------------------------------------------------------
+4) CONNECT A TABLET / PHONE
+------------------------------------------------------------------------------
+    1. On the tablet's browser, open the https URL shown in the app
+       (e.g. https://192.168.1.10:8766) — or scan the QR code.
+    2. Your browser warns about the self-signed certificate — tap
+       Advanced -> Proceed / Accept. (One-time per device.)
+       If the video won't load, also open https://<ip>:8765 once and accept
+       the certificate there too — that's the video socket.
+    3. Enter the PIN shown in the app. You're in.
+
+The PIN is regenerated on every launch and is shown in the app, so there's
+nothing to memorize or leak.
+
+
+------------------------------------------------------------------------------
+5) USING IT
+------------------------------------------------------------------------------
+Toolbar in the tablet browser:
+    Control  remote mouse/keyboard      Pad    touchpad (relative) mode
+    KB       on-screen keyboard          Audio  forward laptop sound
+    Apps     launch apps + volume/lock   Files  upload/download files
+    Term     web terminal                Auto   adaptive quality
+Gestures: pinch to zoom (any mode), two-finger drag to pan when zoomed,
+two fingers up/down to scroll like a mouse wheel.
+
+In the DESKTOP APP:
+    Home      START/STOP, QR, PIN, connected count, live log console.
+    History   every session: start/stop time, duration, connected devices,
+              saved logs, error flags.
+    Advanced  security (rotating vs fixed PIN, TLS on/off), start-on-login,
+              and "Check for updates".
+
+
+------------------------------------------------------------------------------
+6) UPDATING TO A NEW VERSION
+------------------------------------------------------------------------------
+    cd screenshare
+    git pull
+    ./install.sh        # rebuilds + reinstalls everything cleanly
+
+
+------------------------------------------------------------------------------
+7) UNINSTALL
+------------------------------------------------------------------------------
+    cd screenshare
+    ./install.sh remove
+    # this removes the `screenshare` command, the AppImage, and the menu entry.
+    # to also wipe settings/history/cert:
+    rm -rf ~/.config/screen-stream "~/.config/Screen Stream"
+
+
+------------------------------------------------------------------------------
+8) TROUBLESHOOTING
+------------------------------------------------------------------------------
+• Clicking the icon opens a TERMINAL, not the app:
+    An old launcher is cached. Re-run ./install.sh, then refresh the menu:
+    log out/in, or (on X11) press Alt+F2, type r, Enter.
+
+• The app opens but buttons do nothing / "not responding":
+    You may be running an old build. Re-run ./install.sh (it now always
+    installs the freshly built AppImage), then relaunch from the app grid.
+
+• "Connection is not secure" on the tablet:
+    Expected for a self-signed cert on a LAN IP — accept it once (Section 4).
+
+• AppImage won't launch:
+    Ubuntu sometimes lacks FUSE for AppImages:  sudo apt install libfuse2
+    (Screen Stream's AppImage normally bundles what it needs; this is a
+    fallback.)
+
+• No audio / no app launcher / no lock:
+    Install the matching optional package from Section 1. The app dims the
+    buttons it can't use.
+
+• Web terminal is missing:
+    xterm.js failed to download on the first run — re-run ./install.sh with
+    internet.
+
+
+------------------------------------------------------------------------------
+9) FOR DEVELOPERS
+------------------------------------------------------------------------------
+Run the desktop app without packaging (live code, fast iteration):
+
+    cd app
+    npm install            # once
+    npm start              # launches the Electron control panel
+
+Run just the server (no GUI):
+
+    ./start.sh             # or:  screenshare
+    # flags: --pin <PIN>  --no-pin  --tls  --no-tls  --cert <p> --key <p>
+
+Project layout:
+
+    screenshare
+    ├── install.sh            one-shot installer (CLI + desktop app)
+    ├── start.sh              sets up venv/assets, generates PIN, runs server
+    ├── screenshare           thin wrapper -> start.sh
+    ├── assets/               app logo (svg)
+    ├── app/                  Electron desktop control-panel app
+    │   ├── main.js           main process (spawns server, tray, IPC, updates)
+    │   ├── preload.js        contextBridge IPC API
+    │   ├── lib/              serverctl · history (SQLite) · settings
+    │   └── renderer/         the UI (Home / History / Advanced)
+    ├── src/screenshare/      the Python server package
+    │   ├── server.py         entry: wires modules, runs HTTP + WebSocket
+    │   ├── config security media host files terminal httpapp wsapp  (modules)
+    │   └── web/              the tablet client (index.html + mpegts/xterm)
+    └── packaging/            Debian .deb build for the CLI server
+
+Build the AppImage + .deb manually:
+
+    cd app && npm run dist    # outputs to ../dist/ScreenStream-2.0.0.{AppImage,deb}
+
+==============================================================================
+ Author: Kumar Satyam  (@krsatyam36)        License: MIT
+==============================================================================

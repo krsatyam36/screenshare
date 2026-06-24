@@ -40,9 +40,10 @@ def start_mdns(ip: str, port: int) -> None:
         atexit.register(lambda: (zc.unregister_service(info), zc.close()))
         log.info("mDNS: screen-stream.local registered")
     except ImportError:
-        log.warning("mDNS: zeroconf not installed — install with: pip install zeroconf")
+        log.info("mDNS: zeroconf not installed — skipping screen-stream.local (use the IP URL)")
     except Exception as exc:
-        log.warning(f"mDNS: {exc}")
+        msg = str(exc).strip() or type(exc).__name__
+        log.info(f"mDNS: screen-stream.local unavailable ({msg}) — use the IP URL instead")
 
 
 
