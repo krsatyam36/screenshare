@@ -5,7 +5,7 @@ This release hardens Screen Stream into a real product: a clean modular codebase
 ## ✨ What's New
 
 - **Secure by default, rotating PIN:** every launch generates a fresh **alphanumeric** PIN (held in memory — never written to disk or committed) and serves over self-signed TLS whose certificate now includes the LAN IP/hostnames in its SAN. `--no-tls`/`--no-pin` remain local-debug escape hatches.
-- **One command + desktop app:** run `screenshare` from anywhere, or install a launcher (`./install-app.sh`) with a custom logo that opens the server in a terminal.
+- **Desktop control-panel app (Electron):** a polished dark-themed app (sidebar: Home / History / Advanced) with a big **Start/Stop** (streaming no longer auto-starts), the QR/PIN/URL, a live "who's connected" indicator, a friendly status line with a raw-log console, security settings, a system tray, ask-on-close, and a **History** tab (SQLite: session timeline, per-session logs, connections, error flags). `./install.sh` builds + installs it (AppImage + .deb) alongside the `screenshare` command — two ways in, no terminal required.
 - **Real app icons:** the launcher shows each app's actual icon (freedesktop lookup), with a letter-tile fallback.
 - **Gestures, reworked:** pinch-to-zoom now works in *every* mode; two-finger drag pans the zoomed frame; two-finger up/down scrolls like a mouse wheel — on the stream and in the web terminal.
 - **Modular codebase:** the monolithic `server.py` is split into a `src/screenshare/` package (`config`, `security`, `media`, `host`, `files`, `terminal`, `httpapp`, `wsapp`, `server`). Behaviour is unchanged and verified end-to-end.

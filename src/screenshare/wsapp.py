@@ -3,12 +3,13 @@ video stream, enforces auth, and registers mDNS."""
 import asyncio
 import atexit
 import socket
+import time
 from urllib.parse import urlparse, parse_qs
 
 import websockets
 import websockets.exceptions
 
-from .config import SCREENS, WS_PORT, BITRATE, FPS, log
+from .config import SCREENS, WS_PORT, BITRATE, FPS, STATS, log
 from . import security
 from .media import stream_screen
 from .terminal import pty_handler, _PTY_OK
@@ -97,4 +98,18 @@ async def ws_handler(websocket) -> None:
         await websocket.close(1008, f"Unknown screen '{screen_id}'")
         return
 
-    await stream_screen(websocket, screen_id, bitrate, fps, crop, audio)
+    client = {
+        'ip': websocket.remote_address[0] if websocket.remote_address else '?',
+        'screen': screen_id,
+        'since': time.time(),
+    }
+    STATS['clients'].append(client)
+    STATS['active'] = len(STATS['clients'])
+    try:
+        await stream_screen(websocket, screen_id, bitrate, fps, crop, audio)
+    finally:
+        try:
+            STATS['clients'].remove(client)
+        except ValueError:
+            pass
+        STATS['active'] = len(STATS['clients'])

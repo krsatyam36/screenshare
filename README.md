@@ -94,6 +94,23 @@ Optional extras (each unlocks a feature; the UI hides what isn't present):
 
 ## Install & Run
 
+### Easiest: one installer (CLI + desktop app)
+
+```bash
+git clone https://github.com/krsatyam36/screenshare.git
+cd screenshare
+./install.sh
+```
+
+`install.sh` sets up the Python environment, installs the **`screenshare`** terminal command, and builds + installs the **desktop app** (AppImage + .deb). After that you have two ways in — no terminal required:
+
+- **App grid:** open **Screen Stream** like any app. A control panel opens with a big **Start/Stop**, the QR code, the PIN, live "who's connected", logs, and a History tab.
+- **Terminal:** type `screenshare` from anywhere.
+
+> Built for non-technical users too: the app does **not** auto-start streaming — press **Start**, hand someone the QR/PIN, press **Stop** when done. Flags: `./install.sh --no-build` (skip the Electron build, use a dev launcher) · `--no-app` (CLI only) · `remove` (uninstall).
+
+The manual steps below are for development.
+
 ### 1. Clone
 
 ```bash
@@ -228,9 +245,13 @@ graph LR
 screenshare/
 ├── screenshare              # launcher wrapper → start.sh
 ├── start.sh                 # sets up venv + assets, generates PIN, launches the server
-├── install-app.sh           # installs the desktop app + icon
+├── install.sh               # one-shot installer: CLI command + desktop app (AppImage/.deb)
 ├── assets/screenshare.svg   # app logo
-├── packaging/               # Debian .deb build
+├── app/                     # Electron desktop control-panel app
+│   ├── main.js · preload.js # main process (spawns server, tray, IPC, updates)
+│   ├── lib/                 # serverctl · history (SQLite) · settings
+│   └── renderer/            # sidebar UI (Home / History / Advanced)
+├── packaging/               # Debian .deb build (CLI server)
 └── src/screenshare/         # the Python package
     ├── __main__.py          # python -m screenshare
     ├── server.py            # entry: wires modules, banner, runs HTTP + WS

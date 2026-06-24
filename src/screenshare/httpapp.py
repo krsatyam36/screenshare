@@ -8,7 +8,7 @@ import socketserver
 import subprocess
 from urllib.parse import urlparse, parse_qs
 
-from .config import WEB_DIR, DISPLAY_ENV, SCREEN_BOUNDS, HTTP_PORT, log
+from .config import WEB_DIR, DISPLAY_ENV, SCREEN_BOUNDS, HTTP_PORT, STATS, log
 from . import security
 from . import media
 from .host import (
@@ -36,6 +36,26 @@ def run_http_server() -> None:
             self.end_headers()
 
         def do_GET(self):
+            # ── /status — live state for the desktop app (localhost only) ─
+            # Allowed without a PIN when requested from the machine itself,
+            # so the local control-panel app can poll connection state.
+            if urlparse(self.path).path == '/status':
+                if self.client_address[0] not in ('127.0.0.1', '::1', 'localhost'):
+                    self._deny()
+                    return
+                data = json.dumps({
+                    'active':  STATS['active'],
+                    'clients': STATS['clients'],
+                    'started': STATS['started'],
+                }).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Content-Length', str(len(data)))
+                self.send_header('Cache-Control', 'no-store')
+                self.end_headers()
+                self.wfile.write(data)
+                return
+
             # ── Auth gate ────────────────────────────────────────────────
             if security.AUTH_PIN and not self._is_authed():
                 if self.path in ('/', '/index.html'):

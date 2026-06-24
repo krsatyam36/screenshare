@@ -39,3 +39,7 @@ logging.basicConfig(
     datefmt='%H:%M:%S',
 )
 log = logging.getLogger('screenshare')
+
+# Live runtime stats — read by the /status endpoint (consumed by the desktop
+# app to show connection state). Mutated in place by the WebSocket handler.
+STATS = {'active': 0, 'started': None, 'clients': []}
