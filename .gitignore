@@ -30,3 +30,98 @@ xterm-addon-fit.js
 pin
 *.pin
 src/screenshare/web/screenshare.svg
+app/node_modules/
+app/build/icon.png
+app/renderer/logo.svg
+Screen Stream — Desktop App Phase: Requirements Q&A
+====================================================
+These questions/answers shape the desktop application (control-panel GUI,
+AppImage/.deb packaging, history, start/stop, professional UI).
+
+--- ROUND 1: Architecture ---
+
+Q1. GUI tech stack?
+    A1. Electron (web UI) — gorgeous UI via web tech, packages to AppImage,
+        Node toolchain (~heavier bundle).
+
+Q2. App's role relative to streaming?
+    A2. Control panel / dashboard — starts/stops the server, shows status,
+        URL, QR, PIN, logs and history. Viewing/controlling stays on the tablet.
+
+Q3. Packaging / distribution for Ubuntu/Debian?
+    A3. Both AppImage + .deb.
+
+Q4. How should "clone → it's installed" work?
+    A4. Local ./install.sh builds + installs on clone (sets up everything).
+        (Also: record all these Q&A in this file — they shape the tool.)
+
+--- ROUND 2: Behavior & lifecycle ---
+
+Q5. Closing the window while streaming?
+    A5. Ask each time — prompt "Keep running in tray" vs "Stop & quit".
+
+Q6. System tray and/or start-on-login?
+    A6. "Whatever you like" → include BOTH a system-tray icon (quick start/stop +
+        status) and an optional start-on-login toggle in settings.
+
+Q7. Default view simplicity?
+    A7. Simple default + Advanced section (big Start/Stop + QR/PIN up front;
+        quality/screen/port/TLS tucked under Advanced).
+
+Q8. Most prominent connect info after Start?
+    A8. ALL: big scannable QR, large readable PIN (with copy), URL + copy button,
+        and a live "who's connected" indicator.
+
+--- ROUND 3: History, logs, settings ---
+
+Q9.  History records?
+     A9. ALL: session timeline (start/stop + duration, first-ever/last-opened),
+         per-session saved+reviewable logs, connections per session (IP/when/
+         duration), errors/crashes flagged.
+
+Q10. Storage backend?
+     A10. SQLite in ~/.config/screen-stream/.
+
+Q11. In-app log console behavior?
+     A11. ALL: friendly status line + raw-log toggle, auto-scroll + color-coded
+          levels, copy/export button, clear button.
+
+Q12. Advanced settings exposed in GUI?
+     A12. Security only — PIN mode (rotating vs fixed) + TLS on/off.
+          (Monitors/quality/ports NOT in the GUI this phase.)
+
+--- ROUND 4: Look & feel, portability, updates ---
+
+Q13. Main-window layout?
+     A13. Sidebar nav (Home / History / Advanced) — left rail switches sections.
+
+Q14. Visual theme / accent?
+     A14. Dark, indigo/blue accent matching the logo (charcoal surfaces,
+          blue→indigo gradient accent).
+
+Q15. Monitors on a different machine (e.g. dad's)?
+     A15. Keep hardcoded for now (revisit display auto-detect later).
+
+Q16. Updates?
+     A16. "Check for updates" button — compare to GitHub latest release, notify,
+          manual download (no auto-update this phase).
+
+====================================================
+BUILD PLAN (derived):
+  • Electron control-panel app (sidebar: Home / History / Advanced), dark
+    indigo theme, system tray + optional start-on-login, ask-on-close.
+  • Home: big QR + large PIN (copy) + URL (copy) + live "connected" indicator,
+    Start/Stop buttons (server does NOT auto-start), log console (friendly +
+    raw toggle, color levels, auto-scroll, copy/export, clear).
+  • Advanced: security only (PIN rotating/fixed, TLS on/off).
+  • History: SQLite in ~/.config/screen-stream/ — session timeline (start/stop/
+    duration, first/last), saved per-session logs, connections (IP/when/dur),
+    errors flagged.
+  • App manages the server: generates the PIN, spawns the Python server,
+    parses logs + polls a new /status endpoint for live connections.
+  • Two entry points unchanged + new: `screenshare` (CLI) AND the GUI app
+    (double-click / app menu).
+  • Packaging: electron-builder → AppImage + .deb. ./install.sh builds &
+    installs on clone (venv, assets, build, menu entry).
+  • "Check for updates" via GitHub releases API.
+claude_questions.txt

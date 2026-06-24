@@ -3,10 +3,11 @@ HTTP + WebSocket servers."""
 import asyncio
 import sys
 import threading
+import time
 
 import websockets
 
-from .config import HTTP_PORT, WS_PORT, log
+from .config import HTTP_PORT, WS_PORT, STATS, log
 from . import security
 from . import media
 from .host import get_local_ip, _XDOTOOL
@@ -15,6 +16,7 @@ from .wsapp import ws_handler, start_mdns
 
 
 async def main() -> None:
+    STATS['started'] = time.time()
     ip = get_local_ip()
     media.detect_hw_encoders()
     media.detect_audio_source()

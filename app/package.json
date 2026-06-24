@@ -1,0 +1,51 @@
+{
+  "name": "screenshare-desktop",
+  "productName": "Screen Stream",
+  "version": "2.0.0",
+  "description": "Control panel for Screen Stream — start/stop the LAN remote-desktop server, show the QR/PIN, view history.",
+  "author": "Kumar Satyam <kumarsatyam3135@gmail.com>",
+  "license": "MIT",
+  "main": "main.js",
+  "scripts": {
+    "gen-icon": "node scripts/gen-icon.js",
+    "start": "electron . --no-sandbox",
+    "dist": "npm run gen-icon && electron-builder --linux AppImage deb",
+    "postinstall": "node scripts/gen-icon.js || true"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "@electron/rebuild": "^3.7.1",
+    "sharp": "^0.33.5"
+  },
+  "build": {
+    "appId": "com.krsatyam36.screenstream",
+    "productName": "Screen Stream",
+    "directories": { "output": "../dist", "buildResources": "build" },
+    "files": ["main.js", "preload.js", "lib/**/*", "renderer/**/*", "build/icon.png"],
+    "extraResources": [
+      { "from": "../src", "to": "src" },
+      { "from": "../start.sh", "to": "start.sh" },
+      { "from": "../assets", "to": "assets" }
+    ],
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "build/icon.png",
+      "category": "Network",
+      "synopsis": "Stream and remote-control this laptop from a tablet",
+      "desktop": {
+        "Name": "Screen Stream",
+        "Comment": "Stream and control this laptop from a tablet on your LAN",
+        "Categories": "Network;RemoteAccess;"
+      }
+    },
+    "deb": {
+      "depends": ["ffmpeg", "python3", "python3-venv", "xdotool"],
+      "recommends": ["xclip", "openssl", "libglib2.0-bin"]
+    }
+  }
+}

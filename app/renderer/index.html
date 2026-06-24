@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline';">
+<title>Screen Stream</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="logo.svg" class="brand-logo" alt="">
+      <div class="brand-name">Screen<span>Stream</span></div>
+    </div>
+    <nav class="nav">
+      <button class="nav-item active" data-view="home"><span class="ni">⌂</span> Home</button>
+      <button class="nav-item" data-view="history"><span class="ni">𝄜</span> History</button>
+      <button class="nav-item" data-view="advanced"><span class="ni">⚙</span> Advanced</button>
+    </nav>
+    <div class="side-foot">
+      <span class="dot" id="side-dot"></span>
+      <span id="side-state">Stopped</span>
+      <span class="ver" id="side-ver"></span>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <!-- HOME -->
+    <section class="view active" id="view-home">
+      <header class="topbar">
+        <h1>Home</h1>
+        <span class="pill" id="state-pill"><span class="dot"></span> <span id="state-text">Stopped</span></span>
+      </header>
+
+      <div class="home-grid">
+        <div class="card connect-card">
+          <div class="qr-wrap"><img id="qr" alt="QR code" /><div id="qr-empty" class="qr-empty">Start to reveal<br>the QR code</div></div>
+          <div class="connect-info">
+            <div class="field">
+              <label>PIN</label>
+              <div class="value-row"><code id="pin" class="big">––––––</code><button class="mini" data-copy="pin" title="Copy">⧉</button></div>
+            </div>
+            <div class="field">
+              <label>Address</label>
+              <div class="value-row"><code id="url">—</code><button class="mini" data-copy="url" title="Copy">⧉</button><button class="mini" id="open-url" title="Open">↗</button></div>
+            </div>
+            <div class="field">
+              <label>Connected</label>
+              <div class="value-row"><span id="conn-count" class="chip chip-idle">0 devices</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="start-row">
+          <button id="start-btn" class="primary big-btn">▶ Start</button>
+          <button id="stop-btn" class="danger big-btn" disabled>■ Stop</button>
+        </div>
+
+        <div class="card log-card">
+          <div class="log-head">
+            <span id="friendly">Idle — press Start to begin.</span>
+            <div class="log-tools">
+              <button id="toggle-raw" class="mini-text">Show raw logs</button>
+              <button id="copy-log" class="mini-text">Copy</button>
+              <button id="clear-log" class="mini-text">Clear</button>
+            </div>
+          </div>
+          <div id="log" class="log hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HISTORY -->
+    <section class="view" id="view-history">
+      <header class="topbar"><h1>History</h1></header>
+      <div class="meta-row" id="meta-row"></div>
+      <div class="history-split">
+        <div class="sessions" id="sessions"></div>
+        <div class="session-detail card" id="session-detail"><div class="muted">Select a session.</div></div>
+      </div>
+    </section>
+
+    <!-- ADVANCED -->
+    <section class="view" id="view-advanced">
+      <header class="topbar"><h1>Advanced</h1></header>
+      <div class="card settings">
+        <h3>Security</h3>
+        <div class="setting">
+          <div><div class="s-name">PIN</div><div class="s-desc">A rotating PIN is generated each start. Or set a fixed one.</div></div>
+          <div class="s-control">
+            <select id="pin-mode"><option value="rotating">Rotating (new each start)</option><option value="fixed">Fixed</option></select>
+            <input id="fixed-pin" placeholder="fixed PIN" maxlength="32" />
+          </div>
+        </div>
+        <div class="setting">
+          <div><div class="s-name">Encryption (TLS)</div><div class="s-desc">Serve over https/wss. Off = plaintext (trusted LAN only).</div></div>
+          <label class="switch"><input type="checkbox" id="tls"><span></span></label>
+        </div>
+        <div class="setting">
+          <div><div class="s-name">Start on login</div><div class="s-desc">Open this app automatically when you log in.</div></div>
+          <label class="switch"><input type="checkbox" id="autostart"><span></span></label>
+        </div>
+        <p class="hint" id="settings-hint">Changes apply on the next Start.</p>
+      </div>
+      <div class="card settings">
+        <h3>About</h3>
+        <div class="setting">
+          <div><div class="s-name">Updates</div><div class="s-desc" id="update-status">Check GitHub for a newer release.</div></div>
+          <button id="check-updates" class="secondary">Check for updates</button>
+        </div>
+        <p class="hint" id="db-path"></p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Ask-on-close modal -->
+<div class="overlay" id="close-modal">
+  <div class="modal">
+    <h3>Streaming is active</h3>
+    <p>Keep it running in the background, or stop and quit?</p>
+    <div class="modal-row">
+      <button class="secondary" id="close-tray">Keep in tray</button>
+      <button class="danger" id="close-quit">Stop &amp; quit</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
